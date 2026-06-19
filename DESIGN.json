@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-14T00:00:00Z",
+  "title": "Design System: Training Dashboard",
+  "extensions": {
+    "colorMeta": {
+      "strava-orange": { "role": "primary", "displayName": "Strava Orange", "canonical": "#FC4C02", "tonalRamp": ["#3a1200", "#5c1d00", "#8a2c00", "#b83a00", "#fc4c02", "#fd7438", "#fea273", "#ffd2bc"] },
+      "action-orange": { "role": "primary", "displayName": "Action Orange", "canonical": "#CC4011", "tonalRamp": ["#2e0e03", "#4c1707", "#74240b", "#9c310e", "#cc4011", "#e06436", "#ec9270", "#f6c8b3"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#242428", "tonalRamp": ["#0d0d0f", "#242428", "#3a3a3f", "#56565c", "#79797f", "#a3a3a8", "#cccccf", "#ececee"] },
+      "slate-mid": { "role": "neutral", "displayName": "Slate Mid", "canonical": "#6D6D6D", "tonalRamp": ["#1f1f1f", "#383838", "#525252", "#6d6d6d", "#8a8a8a", "#a8a8a8", "#cccccc", "#ececec"] },
+      "surface": { "role": "neutral", "displayName": "Surface White", "canonical": "#FFFFFF", "tonalRamp": ["#d9d9d9", "#e2e2e2", "#ebebeb", "#f2f2f2", "#f7f7f7", "#fbfbfb", "#fefefe", "#ffffff"] },
+      "canvas": { "role": "neutral", "displayName": "Canvas Gray", "canonical": "#F5F5F5", "tonalRamp": ["#c9c9c9", "#d6d6d6", "#e2e2e2", "#ececec", "#f5f5f5", "#fafafa", "#fdfdfd", "#ffffff"] },
+      "hairline": { "role": "neutral", "displayName": "Hairline", "canonical": "#E8E8E8", "tonalRamp": ["#bdbdbd", "#cccccc", "#dadada", "#e8e8e8", "#efefef", "#f4f4f4", "#f9f9f9", "#fdfdfd"] },
+      "swim-cyan": { "role": "secondary", "displayName": "Swim Cyan", "canonical": "#00B4D8", "tonalRamp": ["#003241", "#004a5e", "#00697f", "#0090a8", "#00b4d8", "#3ec8e4", "#83dcee", "#c2eff7"] },
+      "bike-blue": { "role": "secondary", "displayName": "Bike Blue", "canonical": "#4A90D9", "tonalRamp": ["#10243b", "#1c3c61", "#2a5a8f", "#3a76b8", "#4a90d9", "#74aae2", "#a3c7ec", "#d2e3f6"] },
+      "brick-violet": { "role": "secondary", "displayName": "Brick Violet", "canonical": "#8B5CF6", "tonalRamp": ["#241647", "#382269", "#4f308f", "#6b43c4", "#8b5cf6", "#a883f8", "#c5acfb", "#e3d6fd"] },
+      "rest-gray": { "role": "secondary", "displayName": "Rest Gray", "canonical": "#9CA3AF", "tonalRamp": ["#3a3d44", "#4f535b", "#676c75", "#82888f", "#9ca3af", "#b7bcc4", "#d3d6db", "#eceef0"] },
+      "success-green": { "role": "tertiary", "displayName": "Success Green", "canonical": "#27AE60", "tonalRamp": ["#0a2e19", "#114627", "#196437", "#1f8a4b", "#27ae60", "#54c181", "#8ed7a9", "#c9eed6"] },
+      "alert-red": { "role": "tertiary", "displayName": "Alert Red", "canonical": "#C0392B", "tonalRamp": ["#360f0a", "#551812", "#80241b", "#a02e23", "#c0392b", "#d46557", "#e59c92", "#f3d2cd"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The race countdown number only. The single biggest moment on the surface." },
+      "headline": { "displayName": "Headline", "purpose": "Hero active-session duration and the large sport badge." },
+      "title": { "displayName": "Title", "purpose": "Page and section titles; card titles step down to ~0.83rem/700." },
+      "body": { "displayName": "Body", "purpose": "Inputs, descriptions, schedule labels. 14px base, 65-75ch for prose." },
+      "label": { "displayName": "Label", "purpose": "Uppercase eyebrows, day-of-week headers, sport badges." }
+    },
+    "shadows": [
+      { "name": "resting-card", "value": "0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)", "purpose": "Default barely-there lift for cards and panels off the canvas." },
+      { "name": "lifted", "value": "0 4px 16px rgba(0,0,0,0.08)", "purpose": "Elements that rise above the page: popovers, expanded activity detail. Use rarely." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Default easing for state transitions and progress fills." },
+      { "name": "duration-fast", "value": "0.15s", "purpose": "Hover, focus, and color state changes." },
+      { "name": "duration-progress", "value": "0.8s", "purpose": "Determinate progress-bar fill on load." }
+    ],
+    "breakpoints": [
+      { "name": "lg", "value": "900px" },
+      { "name": "md", "value": "760px" },
+      { "name": "sm", "value": "600px" },
+      { "name": "xs", "value": "480px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single committed action on a surface (Connect with Strava, Save and apply).",
+      "html": "<button class=\"ds-btn-primary\">Save &amp; apply</button>",
+      "css": ".ds-btn-primary{background:#CC4011;color:#fff;font-family:Inter,-apple-system,sans-serif;font-weight:700;font-size:.8rem;padding:.62rem 1.2rem;border:none;border-radius:6px;cursor:pointer;transition:opacity .15s;}.ds-btn-primary:hover{opacity:.88;}.ds-btn-primary:focus-visible{outline:2px solid #FC4C02;outline-offset:2px;}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Neutral parallel action (Cancel).",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary{background:#fff;color:#242428;font-family:Inter,-apple-system,sans-serif;font-weight:700;font-size:.8rem;padding:.62rem 1.2rem;border:1.5px solid #E8E8E8;border-radius:6px;cursor:pointer;transition:border-color .15s;}.ds-btn-secondary:hover{border-color:#242428;}.ds-btn-secondary:focus-visible{outline:2px solid #FC4C02;outline-offset:2px;}"
+    },
+    {
+      "name": "Add Button (dashed)",
+      "kind": "button",
+      "refersTo": "add-button",
+      "description": "Adds an item to a list (+ Add Phase). Dashed border is the 'add' signal.",
+      "html": "<button class=\"ds-btn-add\">+ Add Phase</button>",
+      "css": ".ds-btn-add{background:none;color:#CC4011;font-family:Inter,-apple-system,sans-serif;font-weight:700;font-size:.75rem;width:100%;padding:.55rem .8rem;border:1.5px dashed #E8E8E8;border-radius:8px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;}.ds-btn-add:hover{border-color:#CC4011;background:rgba(252,76,2,.1);}.ds-btn-add:focus-visible{outline:2px solid #FC4C02;outline-offset:2px;}"
+    },
+    {
+      "name": "Start-Flow CTA (solid)",
+      "kind": "button",
+      "refersTo": "add-button",
+      "description": "Starts a flow (Load preset, Start AI questionnaire). Solid border distinguishes it from the dashed 'add' button.",
+      "html": "<button class=\"ds-btn-cta\">Start AI questionnaire</button>",
+      "css": ".ds-btn-cta{background:none;color:#CC4011;font-family:Inter,-apple-system,sans-serif;font-weight:700;font-size:.75rem;width:100%;padding:.55rem .8rem;border:1.5px solid #E8E8E8;border-radius:8px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;}.ds-btn-cta:hover{border-color:#CC4011;background:rgba(252,76,2,.1);}.ds-btn-cta:focus-visible{outline:2px solid #FC4C02;outline-offset:2px;}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labeled form field used throughout the Plan Builder and AI questionnaire.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Race name</span><input class=\"ds-input\" type=\"text\" value=\"70.3 Half-Ironman\"></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:.3rem;font-family:Inter,-apple-system,sans-serif;}.ds-field-label{font-size:.68rem;font-weight:600;color:#242428;}.ds-input{border:1.5px solid #E8E8E8;border-radius:6px;background:#fff;color:#242428;font-size:.86rem;padding:.52rem .72rem;outline:none;transition:border-color .15s;}.ds-input:focus{border-color:#FC4C02;}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Top-level surface for a section of the dashboard or builder.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">Race Info</div><p class=\"ds-card-sub\">Pick a ready-made plan, then review and tweak before saving.</p></div>",
+      "css": ".ds-card{background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);padding:1.25rem;font-family:Inter,-apple-system,sans-serif;}.ds-card-title{font-size:.85rem;font-weight:700;color:#242428;margin-bottom:.5rem;}.ds-card-sub{font-size:.75rem;color:#6D6D6D;line-height:1.6;margin:0;}"
+    },
+    {
+      "name": "Nav Bar",
+      "kind": "nav",
+      "refersTo": "nav-link",
+      "description": "Sticky top bar with links and the ever-present race countdown.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-link\" href=\"#\">Edit Plan</a><span class=\"ds-nav-race\">« Race in 112 days</span></nav>",
+      "css": ".ds-nav{display:flex;align-items:center;justify-content:space-between;gap:1rem;height:48px;padding:0 1.25rem;background:#fff;border-bottom:1px solid #E8E8E8;font-family:Inter,-apple-system,sans-serif;}.ds-nav-link{font-size:.75rem;font-weight:500;color:#6D6D6D;padding:.28rem .6rem;border-radius:5px;text-decoration:none;transition:color .15s,background .15s;}.ds-nav-link:hover{color:#242428;background:#F5F5F5;}.ds-nav-race{font-size:.72rem;font-weight:700;color:#CC4011;letter-spacing:.015em;}"
+    },
+    {
+      "name": "Sport Badge",
+      "kind": "chip",
+      "refersTo": "sport-badge",
+      "description": "Uppercase discipline label paired with sport color so the schedule reads in grayscale.",
+      "html": "<span class=\"ds-badge ds-badge-run\">RUN</span> <span class=\"ds-badge ds-badge-swim\">SWIM</span> <span class=\"ds-badge ds-badge-bike\">BIKE</span>",
+      "css": ".ds-badge{display:inline-block;font-family:Inter,-apple-system,sans-serif;font-size:.56rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:.16em .48em;border-radius:3px;}.ds-badge-run{color:#CC4011;background:rgba(252,76,2,.12);}.ds-badge-swim{color:#0091ad;background:rgba(0,180,216,.12);}.ds-badge-bike{color:#3a76b8;background:rgba(74,144,217,.12);}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Coach",
+    "overview": "This is the interface of a coach who is steady at every Tuesday session and genuinely fired up on the start line. For the long middle of a training block it stays calm and out of the way: a light, uncluttered surface that answers 'what do I do today?' first, then lets the athlete close the tab and go train. The intensity is held in reserve, rising only for the moments that earn it: race week, race day, a milestone. Underneath the calm is real substance; the plan reacts to actual Strava performance, so the numbers are honest and never dressed up as vanity progress. One code path carries a 5K runner and a full Ironman alike.",
+    "keyCharacteristics": [
+      "Light theme, near-white surfaces on a soft gray canvas, generous breathing room.",
+      "A single committed accent (Strava orange) that means status and action, never decoration.",
+      "Sport-coded but never color-only: every colored dot is backed by a text badge.",
+      "Restrained motion: state feedback, not choreography.",
+      "Day-first hierarchy: today's session and progress to race day lead every screen."
+    ],
+    "rules": [
+      { "name": "The Two-Orange Rule", "body": "Bright #FC4C02 is for large display and decoration only (text 24px+ bold, dots, fills, rings). Anything smaller or interactive uses #CC4011. Bright orange as small text on white is a contrast bug.", "section": "colors" },
+      { "name": "The Color-Plus-Label Rule", "body": "Sport color never carries meaning alone. Every colored dot or fill is paired with a text badge (SWIM, RUN, BIKE, BRICK, REST). The schedule must read correctly in grayscale.", "section": "colors" },
+      { "name": "The One-Family Rule", "body": "Inter (or the system stack) for everything. No display or serif face. Hierarchy is earned through weight and a wide scale jump, not a second font.", "section": "typography" },
+      { "name": "The Hairline-First Rule", "body": "Reach for a 1px or 1.5px hairline border before a shadow. Structure is drawn with strokes; shadow is only an ambient lift on true surfaces.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use Action Orange (#CC4011) for any orange text under large size and for all filled buttons. It clears AA at 4.87:1; bright #FC4C02 does not (3.4:1).",
+      "Do reserve bright Strava Orange (#FC4C02) for large display (the countdown), sport dots, fills, and the today/race-day ring.",
+      "Do pair every sport color with a text badge so the schedule reads in grayscale.",
+      "Do lead each screen with today's session and progress to race day; reach deeper data on purpose.",
+      "Do draw structure with hairline borders first, shadow only as an ambient lift.",
+      "Do keep one font family (Inter / system) and build hierarchy from weight and scale.",
+      "Do hold visible keyboard focus on every interactive element and honor prefers-reduced-motion."
+    ],
+    "donts": [
+      "Don't build a generic SaaS dashboard: no identical KPI card grids, no big-number-plus-label hero-metric template, no purple gradients.",
+      "Don't gamify: no badges, confetti, streak guilt, or aggressive nudges. Motivation is the real race, not points.",
+      "Don't overload with data: no wall of competing charts, no showing every metric at once.",
+      "Don't use background-clip:text gradient text, or any gradient as a decorative accent.",
+      "Don't use a colored border-left or border-right stripe as an accent; use a full border, a background tint, or a leading badge.",
+      "Don't spend the bright orange on decoration that is not a real status or milestone; its rarity is what gives race day its weight.",
+      "Don't animate layout properties or add choreographed page-load sequences; motion is state feedback only."
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+name            = "strava-auth"
+main            = "index.js"
+compatibility_date = "2024-09-23"
+
+# Secrets are set via CLI — never put real values here:
+#   wrangler secret put STRAVA_CLIENT_ID
+#   wrangler secret put STRAVA_CLIENT_SECRET
