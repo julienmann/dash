@@ -561,6 +561,32 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 .builder-btn-ghost{font-size:.78rem;color:var(--mid);font-weight:600;padding:.62rem .4rem;}
 .builder-btn-ghost:hover{color:#C0392B;}
 
+/* ── AI QUESTIONNAIRE WIZARD — one question at a time, feels like a conversation ── */
+.aiq-progress{display:flex;align-items:center;gap:.7rem;margin-bottom:1.5rem;}
+.aiq-progress-bar{flex:1;height:4px;border-radius:99px;background:var(--border);overflow:hidden;}
+.aiq-progress-fill{height:100%;background:var(--orange-strong);border-radius:99px;transition:width .25s ease;}
+.aiq-progress-label{font-size:.66rem;font-weight:700;color:var(--mid);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;}
+.aiq-step-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.75rem;margin-bottom:1.25rem;}
+.aiq-step-eyebrow{font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange-strong);margin-bottom:.5rem;}
+.aiq-step-title{font-size:1.15rem;font-weight:800;margin-bottom:.35rem;line-height:1.3;}
+.aiq-step-sub{font-size:.8rem;color:var(--mid);line-height:1.6;margin-bottom:1.4rem;max-width:34rem;}
+.aiq-step-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.9rem;}
+.aiq-strava-badge{display:flex;align-items:center;gap:.5rem;font-size:.74rem;font-weight:600;color:var(--orange-strong);background:var(--orange-dim);border:1px solid rgba(252,76,2,.18);padding:.55rem .8rem;border-radius:8px;margin-bottom:1.25rem;line-height:1.4;}
+.aiq-strava-badge em{font-style:normal;font-size:.95rem;}
+.aiq-field-note{font-size:.66rem;font-weight:600;color:var(--orange-strong);margin-top:.3rem;}
+.aiq-nav{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.5rem 0 3rem;}
+.aiq-review-grid{display:grid;gap:.55rem;margin-bottom:.5rem;}
+.aiq-review-row{display:flex;justify-content:space-between;gap:1rem;padding:.55rem .2rem;border-bottom:1px solid var(--border);font-size:.78rem;}
+.aiq-review-row:last-child{border-bottom:none;}
+.aiq-review-label{color:var(--mid);font-weight:600;}
+.aiq-review-value{font-weight:700;text-align:right;}
+.aiq-type-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.7rem;margin-bottom:.5rem;}
+.aiq-type-card{background:var(--bg);border:2px solid var(--border);border-radius:10px;padding:1rem .9rem;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;}
+.aiq-type-card:hover{border-color:var(--orange);}
+.aiq-type-card.is-selected{border-color:var(--orange-strong);background:var(--orange-dim);}
+.aiq-type-icon{font-size:1.3rem;display:block;margin-bottom:.4rem;}
+.aiq-type-label{font-size:.76rem;font-weight:700;line-height:1.3;}
+
 /* ── RESPONSIVE ── */
 @media(max-width:900px){
   .stat-grid{grid-template-columns:1fr 1fr;}
@@ -817,28 +843,44 @@ footer{border-top:1px solid var(--border);background:var(--card);}
     </div>
   </div>
 
-  <!-- AI questionnaire — generates a draft plan, then hands off to the editor above for review -->
+  <!-- AI questionnaire — one question at a time, then hands off to the editor above for review -->
   <div id="ai-builder-body" class="hidden">
-    <div class="builder-card">
-      <div class="builder-card-title">Your Race</div>
-      <div class="builder-grid">
-        <div class="form-group"><label class="form-label">Race type</label>
-          <select class="form-input" id="aiq-race-type">
-            <optgroup label="Triathlon">
-              <option value="70.3" selected>70.3 / Half-Ironman</option>
-              <option value="full">Ironman / Full-distance triathlon</option>
-              <option value="olympic">Olympic / standard triathlon</option>
-              <option value="sprint">Sprint triathlon</option>
-            </optgroup>
-            <optgroup label="Running">
-              <option value="5k">5K</option>
-              <option value="10k">10K</option>
-              <option value="half">Half marathon (21.1K)</option>
-              <option value="marathon">Marathon (42.2K)</option>
-              <option value="50k">50K ultramarathon</option>
-            </optgroup>
-            <option value="custom">Other / custom distance</option>
-          </select></div>
+    <div class="aiq-progress">
+      <span class="aiq-progress-label" id="aiq-progress-label">Step 1 of 6</span>
+      <div class="aiq-progress-bar"><div class="aiq-progress-fill" id="aiq-progress-fill" style="width:16.6%"></div></div>
+    </div>
+
+    <select class="form-input hidden" id="aiq-race-type">
+      <optgroup label="Triathlon">
+        <option value="70.3" selected>70.3 / Half-Ironman</option>
+        <option value="full">Ironman / Full-distance triathlon</option>
+        <option value="olympic">Olympic / standard triathlon</option>
+        <option value="sprint">Sprint triathlon</option>
+      </optgroup>
+      <optgroup label="Running">
+        <option value="5k">5K</option>
+        <option value="10k">10K</option>
+        <option value="half">Half marathon (21.1K)</option>
+        <option value="marathon">Marathon (42.2K)</option>
+        <option value="50k">50K ultramarathon</option>
+      </optgroup>
+      <option value="custom">Other / custom distance</option>
+    </select>
+
+    <!-- Step 1 — race type -->
+    <div class="aiq-step-card aiq-step" data-step="0">
+      <div class="aiq-step-eyebrow">Question 1 of 6</div>
+      <div class="aiq-step-title">What are you training for?</div>
+      <p class="aiq-step-sub">Pick the race that's on your calendar. This shapes everything else — session types, weekly structure, and how the plan tapers in.</p>
+      <div class="aiq-type-grid" id="aiq-type-grid"></div>
+    </div>
+
+    <!-- Step 2 — race details -->
+    <div class="aiq-step-card aiq-step hidden" data-step="1">
+      <div class="aiq-step-eyebrow">Question 2 of 6</div>
+      <div class="aiq-step-title">Tell us about the race</div>
+      <p class="aiq-step-sub">Race name and date, plus the goal you're aiming for.</p>
+      <div class="aiq-step-grid">
         <div class="form-group"><label class="form-label">Race name</label>
           <input class="form-input" type="text" id="aiq-race-name" placeholder="e.g. Mont-Tremblant 70.3"></div>
         <div class="form-group"><label class="form-label">Race date</label>
@@ -856,9 +898,13 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       </div>
     </div>
 
-    <div class="builder-card">
-      <div class="builder-card-title">Training Window &amp; Fitness</div>
-      <div class="builder-grid">
+    <!-- Step 3 — training window & fitness -->
+    <div class="aiq-step-card aiq-step hidden" data-step="2">
+      <div class="aiq-step-eyebrow">Question 3 of 6</div>
+      <div class="aiq-step-title">Where's your fitness today?</div>
+      <p class="aiq-step-sub">When training starts, and roughly how much you're doing right now. The plan ramps up from here, not from zero.</p>
+      <div id="aiq-strava-fitness-badge"></div>
+      <div class="aiq-step-grid">
         <div class="form-group"><label class="form-label">Training start date</label>
           <input class="form-input" type="date" id="aiq-train-start"></div>
         <div class="form-group"><label class="form-label">Experience level</label>
@@ -869,13 +915,18 @@ footer{border-top:1px solid var(--border);background:var(--card);}
             <option value="competitive">Competitive / race regularly</option>
           </select></div>
         <div class="form-group"><label class="form-label">Current training volume (hrs/wk)</label>
-          <input class="form-input" type="number" min="0" step="0.5" id="aiq-current-hours" placeholder="e.g. 4"></div>
+          <input class="form-input" type="number" min="0" step="0.5" id="aiq-current-hours" placeholder="e.g. 4">
+          <div class="aiq-field-note hidden" id="aiq-hours-note">From your last 8 weeks on Strava</div></div>
       </div>
     </div>
 
-    <div class="builder-card">
-      <div class="builder-card-title">Weekly Schedule</div>
-      <div class="builder-grid">
+    <!-- Step 4 — weekly schedule -->
+    <div class="aiq-step-card aiq-step hidden" data-step="3">
+      <div class="aiq-step-eyebrow">Question 4 of 6</div>
+      <div class="aiq-step-title">What does your week look like?</div>
+      <p class="aiq-step-sub">How many days you can train, and which days work best for resting and for the long session.</p>
+      <div id="aiq-strava-schedule-badge"></div>
+      <div class="aiq-step-grid">
         <div class="form-group"><label class="form-label">Days available to train</label>
           <input class="form-input" type="number" min="1" max="7" id="aiq-days-per-week" value="6"></div>
         <div class="form-group"><label class="form-label">Preferred rest day</label>
@@ -897,22 +948,33 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       </div>
     </div>
 
-    <div class="builder-card">
-      <div class="builder-card-title">Anything else?</div>
+    <!-- Step 5 — anything else -->
+    <div class="aiq-step-card aiq-step hidden" data-step="4">
+      <div class="aiq-step-eyebrow">Question 5 of 6</div>
+      <div class="aiq-step-title">Anything else we should know?</div>
+      <p class="aiq-step-sub">Optional — injuries to work around, or any tune-up races and travel to plan into the schedule.</p>
       <div class="form-group"><label class="form-label">Injuries or limitations</label>
         <textarea class="form-input" id="aiq-injuries" rows="2" placeholder="e.g. history of IT band issues, avoid high-impact running early on"></textarea></div>
       <div class="form-group"><label class="form-label">Additional notes (tune-up races, travel, goals…)</label>
         <textarea class="form-input" id="aiq-notes" rows="2" placeholder="e.g. Sprint triathlon on Oct 17, 2026 as a tune-up race"></textarea></div>
     </div>
 
-    <div id="ai-builder-status" class="ai-panel-loading hidden" role="status" aria-live="polite">
-      <em class="ai-panel-icon">✦</em> Designing your plan…
-      <div class="ai-loading-bar-wrap"><div class="ai-loading-bar"></div></div>
+    <!-- Step 6 — review -->
+    <div class="aiq-step-card aiq-step hidden" data-step="5">
+      <div class="aiq-step-eyebrow">Question 6 of 6</div>
+      <div class="aiq-step-title">Ready to build your plan</div>
+      <p class="aiq-step-sub">Here's what we'll hand to the coach. Go back to change anything, or generate the plan now.</p>
+      <div class="aiq-review-grid" id="aiq-review-grid"></div>
+      <div id="ai-builder-status" class="ai-panel-loading hidden" role="status" aria-live="polite">
+        <em class="ai-panel-icon">✦</em> Designing your plan…
+        <div class="ai-loading-bar-wrap"><div class="ai-loading-bar"></div></div>
+      </div>
     </div>
+
     <div id="ai-builder-error" class="builder-error hidden" role="alert"></div>
-    <div class="builder-actions">
-      <button class="builder-btn builder-btn-secondary" id="ai-builder-back" type="button">Back</button>
-      <button class="builder-btn builder-btn-primary" id="ai-builder-generate" type="button">✦ Generate plan</button>
+    <div class="aiq-nav">
+      <button class="builder-btn builder-btn-secondary" id="aiq-nav-back" type="button">Back</button>
+      <button class="builder-btn builder-btn-primary" id="aiq-nav-next" type="button">Next →</button>
     </div>
   </div>
 </main>
@@ -3663,6 +3725,174 @@ document.getElementById('aiq-race-type').addEventListener('change', (e) => {
   syncAiSportFields(e.target.value);
 });
 
+// ── Question grid (step 1) — card UI driving the hidden <select> ──
+const AIQ_TYPE_META = {
+  '70.3':    { icon:'🚴', label:'70.3 Half-Ironman' },
+  full:      { icon:'🏁', label:'Ironman / Full' },
+  olympic:   { icon:'◆',  label:'Olympic Triathlon' },
+  sprint:    { icon:'⚡', label:'Sprint Triathlon' },
+  '5k':      { icon:'🏃', label:'5K' },
+  '10k':     { icon:'🏃', label:'10K' },
+  half:      { icon:'🏃', label:'Half Marathon' },
+  marathon:  { icon:'🏃', label:'Marathon' },
+  '50k':     { icon:'⛰',  label:'50K Ultra' },
+  custom:    { icon:'✦',  label:'Other / Custom' },
+};
+const AIQ_TYPE_ORDER = ['70.3','full','olympic','sprint','5k','10k','half','marathon','50k','custom'];
+
+function renderAiqTypeGrid() {
+  const grid = document.getElementById('aiq-type-grid');
+  const sel  = document.getElementById('aiq-race-type');
+  grid.innerHTML = AIQ_TYPE_ORDER.map(id => {
+    const m = AIQ_TYPE_META[id];
+    return `<div class="aiq-type-card${id === sel.value ? ' is-selected' : ''}" data-type="${id}" tabindex="0" role="button" aria-pressed="${id === sel.value}">
+      <span class="aiq-type-icon">${m.icon}</span><span class="aiq-type-label">${esc(m.label)}</span>
+    </div>`;
+  }).join('');
+  grid.querySelectorAll('.aiq-type-card').forEach(card => {
+    card.addEventListener('click', () => {
+      sel.value = card.dataset.type;
+      sel.dispatchEvent(new Event('change'));
+      grid.querySelectorAll('.aiq-type-card').forEach(c => {
+        c.classList.toggle('is-selected', c === card);
+        c.setAttribute('aria-pressed', c === card);
+      });
+    });
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); }
+    });
+  });
+}
+
+// ── Strava-derived suggestions — ground the questionnaire's self-reported fields
+// (current volume, days/week, rest/long day) in the athlete's actual recent training,
+// rather than asking them to estimate from memory. ──
+function deriveAiqStravaSuggestions() {
+  if (!gActivities || gActivities.length < 4) return null;
+  const since = addDays(today, -56); // last 8 weeks
+  const recent = gActivities.filter(a => new Date(a.start_date) >= since && new Date(a.start_date) <= today);
+  if (recent.length < 4) return null;
+
+  const weeksSpanned = Math.max(1, daysBetween(trnDateStr(since), trnDateStr(today)) / 7);
+  const totalHours = recent.reduce((s, a) => s + (a.moving_time || 0), 0) / 3600;
+  const avgHoursPerWeek = totalHours / weeksSpanned;
+
+  // Count sessions per weekday (0=Mon..6=Sun) to infer the de-facto rest day and long day.
+  const dayCounts    = Array(7).fill(0);
+  const dayDurations = Array(7).fill(0);
+  recent.forEach(a => {
+    const jsDow = new Date(a.start_date_local || a.start_date).getDay(); // 0=Sun
+    const dow = (jsDow + 6) % 7; // convert to 0=Mon
+    dayCounts[dow]++;
+    dayDurations[dow] += (a.moving_time || 0);
+  });
+  const restDay = dayCounts.indexOf(Math.min(...dayCounts));
+  const longDay = dayDurations.indexOf(Math.max(...dayDurations));
+  const activeDaysPerWeek = dayCounts.filter(c => c > 0).length;
+
+  const longestSession = Math.round(Math.max(...recent.map(a => (a.moving_time || 0) / 60)));
+
+  return {
+    avgHoursPerWeek: Math.round(avgHoursPerWeek * 10) / 10,
+    activeDaysPerWeek,
+    restDay, longDay, longestSession,
+    sessionCount: recent.length,
+  };
+}
+
+let aiqStravaSuggestions = null;
+
+function applyAiqStravaPrefill() {
+  aiqStravaSuggestions = deriveAiqStravaSuggestions();
+  const fitnessBadge  = document.getElementById('aiq-strava-fitness-badge');
+  const scheduleBadge = document.getElementById('aiq-strava-schedule-badge');
+  const hoursNote = document.getElementById('aiq-hours-note');
+
+  if (!aiqStravaSuggestions) {
+    fitnessBadge.innerHTML = '';
+    scheduleBadge.innerHTML = '';
+    hoursNote.classList.add('hidden');
+    return;
+  }
+  const s = aiqStravaSuggestions;
+  fitnessBadge.innerHTML = `<div class="aiq-strava-badge"><em>✓</em> Based on your last ${s.sessionCount} Strava activities, you're averaging about <strong>${s.avgHoursPerWeek} hrs/week</strong>. We've pre-filled that below — tweak it if it doesn't look right.</div>`;
+  scheduleBadge.innerHTML = `<div class="aiq-strava-badge"><em>✓</em> You typically train ${s.activeDaysPerWeek} days/week, with ${DOW_FULL[s.restDay]} as your lightest day and your longest sessions on ${DOW_FULL[s.longDay]}. We've pre-filled those below.</div>`;
+
+  const hoursEl = document.getElementById('aiq-current-hours');
+  if (!hoursEl.value) { hoursEl.value = s.avgHoursPerWeek; hoursNote.classList.remove('hidden'); }
+  const daysEl = document.getElementById('aiq-days-per-week');
+  if (daysEl.value === '6') daysEl.value = s.activeDaysPerWeek; // '6' is the untouched HTML default
+  document.getElementById('aiq-rest-day').value = String(s.restDay);
+  document.getElementById('aiq-long-day').value = String(s.longDay);
+}
+
+// ── Wizard state machine ──
+const AIQ_STEP_COUNT = 6;
+let aiqStep = 0;
+
+function aiqShowStep(n) {
+  aiqStep = Math.max(0, Math.min(AIQ_STEP_COUNT - 1, n));
+  document.querySelectorAll('#ai-builder-body .aiq-step').forEach(el => {
+    el.classList.toggle('hidden', +el.dataset.step !== aiqStep);
+  });
+  document.getElementById('aiq-progress-label').textContent = `Step ${aiqStep + 1} of ${AIQ_STEP_COUNT}`;
+  document.getElementById('aiq-progress-fill').style.width = `${((aiqStep + 1) / AIQ_STEP_COUNT) * 100}%`;
+  document.getElementById('aiq-nav-back').textContent = aiqStep === 0 ? 'Cancel' : '← Back';
+  document.getElementById('ai-builder-error').classList.add('hidden');
+  const nextBtn = document.getElementById('aiq-nav-next');
+  if (aiqStep === AIQ_STEP_COUNT - 1) {
+    nextBtn.textContent = '✦ Generate plan';
+    renderAiqReview();
+  } else {
+    nextBtn.textContent = 'Next →';
+  }
+  window.scrollTo(0, 0);
+}
+
+function aiqShowErr(msg) {
+  const errEl = document.getElementById('ai-builder-error');
+  errEl.textContent = msg;
+  errEl.classList.remove('hidden');
+}
+
+// Only the fields needed to move forward are validated — everything else is optional
+// and gets sensible defaults at generation time, so the wizard never blocks on trivia.
+function aiqValidateStep() {
+  if (aiqStep === 1 && !aiqVal('aiq-race-date')) {
+    aiqShowErr('Please choose a race date.'); return false;
+  }
+  if (aiqStep === 2) {
+    const trainStart = aiqVal('aiq-train-start');
+    const raceDate = aiqVal('aiq-race-date');
+    if (!DATE_RE.test(trainStart)) { aiqShowErr('Please choose a training start date.'); return false; }
+    if (raceDate && raceDate <= trainStart) { aiqShowErr('Training start date must be before the race date.'); return false; }
+  }
+  return true;
+}
+
+const AIQ_REVIEW_ROWS = [
+  ['Race', () => document.getElementById('aiq-race-type').selectedOptions[0]?.text || 'Other'],
+  ['Race name', () => aiqVal('aiq-race-name') || '(auto-named)'],
+  ['Race date', () => aiqVal('aiq-race-date') || '—'],
+  ['Goal time', () => `${aiqVal('aiq-goal-hours') || 0}h ${aiqVal('aiq-goal-minutes') || 0}m`],
+  ['Training starts', () => aiqVal('aiq-train-start') || '—'],
+  ['Experience', () => AI_EXPERIENCE_LABELS[aiqVal('aiq-experience')] || '—'],
+  ['Current volume', () => `${aiqVal('aiq-current-hours') || '?'} hrs/wk`],
+  ['Days/week', () => aiqVal('aiq-days-per-week') || '—'],
+  ['Rest day', () => DOW_FULL[+aiqVal('aiq-rest-day')] ?? '—'],
+  ['Long day', () => DOW_FULL[+aiqVal('aiq-long-day')] ?? '—'],
+];
+
+function renderAiqReview() {
+  const grid = document.getElementById('aiq-review-grid');
+  const rows = AIQ_REVIEW_ROWS.map(([label, get]) => `
+    <div class="aiq-review-row"><span class="aiq-review-label">${esc(label)}</span><span class="aiq-review-value">${esc(get())}</span></div>`).join('');
+  const stravaRow = aiqStravaSuggestions
+    ? `<div class="aiq-strava-badge"><em>✓</em> Your Strava training history (last 8 weeks) will be included so the coach anchors the plan to your real recent fitness, not just these estimates.</div>`
+    : '';
+  grid.innerHTML = stravaRow + rows;
+}
+
 function openAiBuilder() {
   document.getElementById('builder-body').classList.add('hidden');
   document.getElementById('builder-error').classList.add('hidden');
@@ -3677,7 +3907,9 @@ function openAiBuilder() {
   if (!dateEl.value) dateEl.value = trnDateStr(addDays(today, 168));
 
   syncAiSportFields(document.getElementById('aiq-race-type').value);
-  window.scrollTo(0, 0);
+  renderAiqTypeGrid();
+  applyAiqStravaPrefill();
+  aiqShowStep(0);
 }
 
 function closeAiBuilder() {
@@ -3728,6 +3960,19 @@ function buildAiQuestionnaireContext() {
   if (injuries) lines.push(`Injuries / limitations: ${injuries}`);
   const notes = aiqVal('aiq-notes');
   if (notes) lines.push(`Additional notes / tune-up races: ${notes}`);
+
+  // Objective Strava history, when available, anchors the plan to what the athlete is
+  // actually doing rather than their self-reported estimates above.
+  if (aiqStravaSuggestions) {
+    const s = aiqStravaSuggestions;
+    lines.push('');
+    lines.push('--- Strava training history (last 8 weeks, objective data — treat as ground truth over the self-reported fields above) ---');
+    lines.push(`Actual average training volume: ${s.avgHoursPerWeek} hrs/week across ${s.sessionCount} logged activities`);
+    lines.push(`Actual active training days/week: ${s.activeDaysPerWeek}`);
+    lines.push(`Lightest/rest day observed: ${DOW_FULL[s.restDay]}`);
+    lines.push(`Day with longest sessions observed: ${DOW_FULL[s.longDay]}`);
+    lines.push(`Longest single session in this window: ${s.longestSession} minutes`);
+  }
 
   return { context: lines.join('\n'), totalWeeks };
 }
@@ -3810,6 +4055,7 @@ Taper (final phase, ALWAYS last, recoveryEvery: 0):
 
 WEEKLY VOLUME PROGRESSION:
 - Start at or just below the athlete's stated current weekly training hours
+- If Strava training history is provided, treat it as ground truth: anchor week 1 volume, weekday/long-day placement, and rest days to what they are actually doing now, not to the self-reported estimate
 - Maximum 10% volume increase per week (not session-by-session — total weekly load)
 - Recovery week volume = 60–70% of the preceding week
 - Peak volume in the last full build week before taper begins
@@ -3948,7 +4194,8 @@ function sanitizeAiPlan(raw) {
 const AI_PLAN_FALLBACKS = ['claude-sonnet-4-6', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022'];
 
 async function generateAiPlan() {
-  const btn      = document.getElementById('ai-builder-generate');
+  const btn      = document.getElementById('aiq-nav-next');
+  const backBtn  = document.getElementById('aiq-nav-back');
   const errEl    = document.getElementById('ai-builder-error');
   const statusEl = document.getElementById('ai-builder-status');
   errEl.classList.add('hidden');
@@ -3956,8 +4203,7 @@ async function generateAiPlan() {
   const trainStart = aiqVal('aiq-train-start');
   const raceDate   = aiqVal('aiq-race-date');
   if (!DATE_RE.test(trainStart) || !DATE_RE.test(raceDate) || raceDate <= trainStart) {
-    errEl.textContent = 'Please enter a valid training start date and race date (the race date must be after the training start date).';
-    errEl.classList.remove('hidden');
+    aiqShowErr('Please enter a valid training start date and race date (the race date must be after the training start date).');
     return;
   }
 
@@ -3965,6 +4211,7 @@ async function generateAiPlan() {
   const systemPrompt = AI_PLAN_SYSTEM_PROMPT.replace('{totalWeeks}', totalWeeks);
 
   btn.disabled = true;
+  backBtn.disabled = true;
   btn.textContent = 'Generating…';
   statusEl.classList.remove('hidden');
 
@@ -3990,17 +4237,24 @@ async function generateAiPlan() {
 
   } catch (e) {
     console.error('AI plan generation:', e);
-    errEl.textContent = `Couldn't generate a plan: ${e.message}. Please try again.`;
-    errEl.classList.remove('hidden');
+    aiqShowErr(`Couldn't generate a plan: ${e.message}. Please try again.`);
   } finally {
     btn.disabled = false;
+    backBtn.disabled = false;
     btn.textContent = '✦ Generate plan';
     statusEl.classList.add('hidden');
   }
 }
 
-document.getElementById('ai-builder-back').addEventListener('click', closeAiBuilder);
-document.getElementById('ai-builder-generate').addEventListener('click', generateAiPlan);
+document.getElementById('aiq-nav-back').addEventListener('click', () => {
+  if (aiqStep === 0) closeAiBuilder();
+  else aiqShowStep(aiqStep - 1);
+});
+document.getElementById('aiq-nav-next').addEventListener('click', () => {
+  if (!aiqValidateStep()) return;
+  if (aiqStep === AIQ_STEP_COUNT - 1) generateAiPlan();
+  else aiqShowStep(aiqStep + 1);
+});
 
 document.getElementById('edit-plan-btn').addEventListener('click', openPlanBuilder);
 document.getElementById('builder-cancel-top').addEventListener('click', closePlanBuilder);
