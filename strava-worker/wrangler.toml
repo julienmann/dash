@@ -5,4 +5,4 @@ compatibility_date = "2025-01-01"
 [vars]
 # Comma-separated list of origins allowed to call this worker.
 # Add local dev origins here as needed.
-ALLOWED_ORIGIN = "https://julienmann.ca,http://localhost:8080"
+ALLOWED_ORIGIN = "https://julienmann.ca,https://dash.julienmann.ca,http://localhost:8080"
