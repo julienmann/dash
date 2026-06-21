@@ -430,8 +430,17 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .stat-card-label{font-size:.68rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:.06em;}
 
 /* ── MID GRID ── */
-.mid-grid{display:grid;grid-template-columns:300px 1fr;gap:1rem;margin-bottom:1rem;}
+.mid-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
 .mid-grid--chart-only{grid-template-columns:1fr;}
+.fitness-legend{display:flex;gap:.85rem;}
+.fl-item{display:inline-flex;align-items:center;gap:.32rem;}
+.fl-swatch{width:15px;height:0;border-top-width:2.5px;border-top-style:solid;display:inline-block;border-radius:2px;}
+.fl-proj{border-top-color:var(--mid);border-top-style:dashed;}
+.fl-actual{border-top-color:var(--orange);}
+.fitness-chart svg{width:100%;height:auto;display:block;}
+.fitness-caption{font-size:.72rem;color:var(--mid);margin-top:.7rem;}
+.fitness-caption strong{font-weight:700;}
+.fitness-empty{font-size:.75rem;color:var(--mid);padding:2.5rem .5rem;text-align:center;line-height:1.5;}
 .countdown-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.5rem 1.5rem;display:flex;flex-direction:column;justify-content:center;}
 .countdown-eyebrow{font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);margin-bottom:.4rem;}
 .countdown-num{font-size:7rem;font-weight:800;color:var(--orange);letter-spacing:-.05em;line-height:.85;margin:.1rem 0 .5rem;}
@@ -824,11 +833,16 @@ footer{border-top:1px solid var(--border);background:var(--card);}
   </div>
 
   <div class="mid-grid">
-    <div class="countdown-card" id="countdown-card">
-      <div class="countdown-eyebrow" id="countdown-eyebrow"></div>
-      <div class="countdown-num" id="countdown-num">—</div>
-      <div class="countdown-unit" id="countdown-unit">Days</div>
-      <div class="countdown-date" id="countdown-date"></div>
+    <div class="chart-card" id="fitness-card">
+      <div class="chart-card-header">
+        <div class="chart-card-title">Fitness Trend</div>
+        <div class="chart-card-legend fitness-legend">
+          <span class="fl-item"><span class="fl-swatch fl-proj"></span>Projected</span>
+          <span class="fl-item"><span class="fl-swatch fl-actual"></span>Actual</span>
+        </div>
+      </div>
+      <div class="fitness-chart" id="fitness-chart"></div>
+      <div class="fitness-caption" id="fitness-caption"></div>
     </div>
 
     <div class="chart-card">
@@ -3359,94 +3373,112 @@ function getWorkoutDetails(act) {
   return { effort, effortMeta: EFFORT_META[effort], hrZone, paceTarget, paceUnit, pacePersonalized, focus, structure };
 }
 
-// ── Countdown card (days until training start or race) ───────────
-function renderCountdownCard() {
-  const card      = document.getElementById('countdown-card');
-  const midGrid   = card?.closest('.mid-grid');
-  const eyebrowEl = document.getElementById('countdown-eyebrow');
-  const numEl     = document.getElementById('countdown-num');
-  const unitEl    = document.getElementById('countdown-unit');
-  const dateEl    = document.getElementById('countdown-date');
-  if (!card) return;
+// ── Fitness trend (projected vs actual training load) ────────────
+// A simple CTL-style "fitness" proxy: an exponentially-weighted moving average
+// (≈42-day time constant) of daily training load, where load = session minutes.
+// The PROJECTED curve runs the planned schedule from training start to race day;
+// the ACTUAL curve runs logged Strava activities up to today. The gap between them
+// is precisely what the plan-adaptation logic responds to.
+const FITNESS_TAU = 42;
 
-  card.classList.remove('hidden');
-  midGrid?.classList.remove('mid-grid--chart-only');
+function dailyPlannedLoad(d) {
+  const a = getBaseActivity(d);
+  return a && a.type !== 'rest' ? (a.duration || 0) : 0;
+}
 
-  if (today < TRAIN_START) {
-    // Show the next workout with full detail beside the chart
-    let nextAct = null, nextDate = null;
-    for (let i = 1; i <= 120; i++) {
-      const d   = addDays(today, i);
-      const act = getActivity(d);
-      if (act && act.type !== 'rest') { nextAct = act; nextDate = d; break; }
-    }
-    if (nextAct && nextDate) {
-      const sc      = sportStyle(nextAct.type);
-      const dur     = fmtTrnDur(nextAct.duration);
-      const dCount  = daysUntil(nextDate);
-      const dateLbl = fmtTrnDate(nextDate, {weekday:'short', month:'short', day:'numeric'});
-      const wd      = getWorkoutDetails(nextAct);
+// yyyy-mm-dd -> total logged minutes that day, from Strava activities.
+function buildActualDailyLoad() {
+  const map = {};
+  (gActivities || []).forEach(a => {
+    const ds = (a.start_date_local || a.start_date || '').slice(0, 10);
+    if (!ds) return;
+    map[ds] = (map[ds] || 0) + (a.moving_time || 0) / 60;
+  });
+  return map;
+}
 
-      const dotHtml = wd.effortMeta.dots.map(on =>
-        `<span class="nw-dot" style="${on ? `background:${sc.color}` : ''}"></span>`
-      ).join('');
+function renderFitnessChart() {
+  const host    = document.getElementById('fitness-chart');
+  const caption = document.getElementById('fitness-caption');
+  if (!host) return;
 
-      const paceRow = wd.paceTarget ? `
-        <div class="nw-stat">
-          <span class="nw-stat-lbl">Pace</span>
-          <span class="nw-stat-rhs">${esc(wd.paceTarget)}<span class="nw-stat-unit">${esc(wd.paceUnit || '')}</span></span>
-        </div>` : '';
-
-      card.innerHTML = `
-        <div class="countdown-eyebrow">Next Workout</div>
-        <div class="nw-header">
-          <span class="pretrain-act-badge" style="color:${sc.color};background:${sc.dim};">${sc.badge}</span>
-          <span class="nw-name">${esc(nextAct.label)}</span>
-        </div>
-        ${dur ? `<div class="nw-dur">${dur}</div>` : ''}
-        <hr class="nw-divider">
-        <div class="nw-stats">
-          <div class="nw-stat">
-            <span class="nw-stat-lbl">Effort</span>
-            <span class="nw-stat-rhs">
-              <span class="nw-dots">${dotHtml}</span>
-              <span class="nw-effort-txt">${esc(wd.effortMeta.label)}</span>
-            </span>
-          </div>
-          <div class="nw-stat">
-            <span class="nw-stat-lbl">HR Zone</span>
-            <span class="nw-stat-rhs">
-              <span class="nw-zone-pip" style="background:${wd.hrZone.color}"></span>
-              ${esc(wd.hrZone.label)} · ${esc(wd.hrZone.range)}
-            </span>
-          </div>
-          ${paceRow}
-        </div>
-        <div class="nw-focus">${esc(wd.focus)}</div>
-        <div class="nw-date">${dateLbl} · in ${dCount} day${dCount === 1 ? '' : 's'}</div>`;
-    } else {
-      card.innerHTML = `<div class="countdown-eyebrow">No sessions scheduled</div>`;
-    }
+  const start    = startOfDay(TRAIN_START);
+  const end      = startOfDay(RACE_DATE);
+  const totalDays = Math.round((end - start) / 86400000);
+  if (totalDays < 7) {
+    host.innerHTML = '<div class="fitness-empty">Plan is too short to chart a fitness trend.</div>';
+    if (caption) caption.textContent = '';
     return;
   }
 
-  const dateOpts = { weekday:'long', month:'long', day:'numeric', year:'numeric' };
-  if (today < RACE_DATE) {
-    const d = daysUntil(RACE_DATE);
-    eyebrowEl.textContent = 'Race in';
-    numEl.textContent     = d;
-    unitEl.textContent    = d === 1 ? 'Day' : 'Days';
-    dateEl.textContent    = RACE_DATE.toLocaleDateString('en-CA', dateOpts);
-  } else if (trnDateStr(today) === trnDateStr(RACE_DATE)) {
-    eyebrowEl.textContent = '';
-    numEl.textContent     = '🏁';
-    unitEl.textContent    = 'Race Day';
-    dateEl.textContent    = RACE_DATE.toLocaleDateString('en-CA', dateOpts);
-  } else {
-    eyebrowEl.textContent = '';
-    numEl.textContent     = '🏁';
-    unitEl.textContent    = 'Race Complete';
-    dateEl.textContent    = RACE_DATE.toLocaleDateString('en-CA', dateOpts);
+  const actualMap = buildActualDailyLoad();
+  const hasActual = !!(gActivities && gActivities.length);
+
+  // Seed both curves from the athlete's real daily load in the 42 days before the plan
+  // begins, so the lines start at a realistic level instead of zero.
+  let seedSum = 0;
+  for (let i = 1; i <= FITNESS_TAU; i++) seedSum += actualMap[trnDateStr(addDays(start, -i))] || 0;
+  const seed = seedSum / FITNESS_TAU;
+
+  const alpha    = 1 - Math.exp(-1 / FITNESS_TAU);
+  const todayIdx = Math.max(0, Math.min(totalDays, Math.round((startOfDay(today) - start) / 86400000)));
+
+  let ctlProj = seed, ctlAct = seed;
+  const proj = [], act = [];
+  for (let i = 0; i <= totalDays; i++) {
+    const d = addDays(start, i);
+    ctlProj += alpha * (dailyPlannedLoad(d) - ctlProj);
+    proj.push(ctlProj);
+    if (i <= todayIdx) {
+      ctlAct += alpha * ((actualMap[trnDateStr(d)] || 0) - ctlAct);
+      act.push(ctlAct);
+    }
+  }
+
+  // Geometry
+  const W = 340, H = 170, padL = 8, padR = 10, padT = 12, padB = 22;
+  const maxY = Math.max(1, ...proj, ...act) * 1.1;
+  const x = i => padL + (i / totalDays) * (W - padL - padR);
+  const y = v => H - padB - (v / maxY) * (H - padT - padB);
+  const pts = arr => arr.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+
+  const projLine = `<polyline fill="none" stroke="var(--mid)" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round" points="${pts(proj)}"/>`;
+  const actLine  = hasActual && act.length > 1
+    ? `<polyline fill="none" stroke="var(--orange)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" points="${pts(act)}"/>`
+    : '';
+  const actDot   = hasActual && act.length
+    ? `<circle cx="${x(todayIdx).toFixed(1)}" cy="${y(act[act.length-1]).toFixed(1)}" r="3.5" fill="var(--orange)"/>`
+    : '';
+
+  // Today marker + race flag
+  const todayMark = todayIdx > 0 && todayIdx < totalDays
+    ? `<line x1="${x(todayIdx).toFixed(1)}" y1="${padT}" x2="${x(todayIdx).toFixed(1)}" y2="${H-padB}" stroke="var(--border)" stroke-width="1"/>
+       <text x="${x(todayIdx).toFixed(1)}" y="${H-padB+13}" font-size="8.5" fill="var(--mid)" text-anchor="middle">Today</text>`
+    : '';
+  const baseline = `<line x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}" stroke="var(--border)" stroke-width="1"/>`;
+  const startLbl = `<text x="${padL}" y="${H-padB+13}" font-size="8.5" fill="var(--mid)" text-anchor="start">Start</text>`;
+  const raceLbl  = `<text x="${W-padR}" y="${H-padB+13}" font-size="8.5" fill="var(--mid)" text-anchor="end">Race 🏁</text>`;
+
+  host.innerHTML =
+    `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Projected versus actual fitness over the training plan">
+      ${baseline}${todayMark}${projLine}${actLine}${actDot}${startLbl}${raceLbl}
+    </svg>`;
+
+  // Caption: where actual sits vs projected right now — the adaptation signal.
+  if (caption) {
+    if (!hasActual) {
+      caption.innerHTML = 'Your <strong>projected</strong> fitness from the plan. Connect activities and train to see your <strong>actual</strong> curve track against it.';
+    } else if (today < TRAIN_START) {
+      caption.innerHTML = 'Plan hasn’t started yet — the dashed line is your <strong>projected</strong> fitness build.';
+    } else {
+      const projNow = proj[todayIdx], actNow = act[act.length - 1];
+      const ratio = projNow > 0 ? actNow / projNow : 1;
+      let msg;
+      if (ratio >= 1.05)      msg = '<strong style="color:var(--orange-strong)">Ahead of plan</strong> — your training load is running higher than projected. Upcoming sessions may be nudged up.';
+      else if (ratio <= 0.92) msg = '<strong style="color:var(--orange-strong)">Behind plan</strong> — actual load is below projection. The plan will ease upcoming sessions to help you catch up safely.';
+      else                    msg = '<strong>On track</strong> — your actual fitness is tracking the projected build closely.';
+      caption.innerHTML = msg;
+    }
   }
 }
 
@@ -3497,7 +3529,7 @@ function stravaRender(athlete, stats, activities, cfg) {
     allTimeEl.textContent = [runsStr, kmStr].filter(Boolean).join(' · ');
     allTimeEl.classList.remove('hidden');
   }
-  renderCountdownCard();
+  renderFitnessChart();
   document.querySelectorAll('.sport-tab:not([data-custom])').forEach(btn => btn.addEventListener('click', () => setSport(btn.dataset.sport)));
   document.querySelectorAll('.period-btn').forEach(btn => btn.addEventListener('click', () => setPeriod(btn.dataset.period)));
   loadCustomSports();
