@@ -3515,15 +3515,9 @@ function renderFitnessChart() {
       const projNow = proj[todayIdx], actNow = act[act.length - 1];
       const ratio = projNow > 0 ? actNow / projNow : 1;
       let msg;
-      // Grace period: the fitness curve needs a couple of weeks of data before the
-      // actual-vs-projected gap is meaningful. Don't flag "behind" this early — a low
-      // reading just reflects the plan ramping up, and calling it out hurts motivation.
-      const FITNESS_GRACE_DAYS = 14;
-      if (todayIdx < FITNESS_GRACE_DAYS) {
-        msg = '<strong>Settling in</strong> — your actual fitness curve builds as you log the first couple of weeks of training.';
-      } else if (ratio >= 1.05) msg = '<strong style="color:var(--orange-strong)">Ahead of plan</strong> — your training load is running higher than projected. Upcoming sessions may be nudged up.';
-      else if (ratio <= 0.92)   msg = '<strong style="color:var(--orange-strong)">Behind plan</strong> — actual load is below projection. The plan will ease upcoming sessions to help you catch up safely.';
-      else                      msg = '<strong>On track</strong> — your actual fitness is tracking the projected build closely.';
+      if (ratio >= 1.05)      msg = '<strong style="color:var(--orange-strong)">Ahead of plan</strong> — your training load is running higher than projected. Upcoming sessions may be nudged up.';
+      else if (ratio <= 0.92) msg = '<strong style="color:var(--orange-strong)">Behind plan</strong> — actual load is below projection. The plan will ease upcoming sessions to help you catch up safely.';
+      else                    msg = '<strong>On track</strong> — your actual fitness is tracking the projected build closely.';
       caption.innerHTML = msg;
     }
   }
@@ -4847,14 +4841,23 @@ function aiqStartProgress() {
     `<li class="aiq-progress-item"><span class="aiq-progress-dot"></span>${label}</li>`).join('');
   const items = [...listEl.children];
   let i = -1;
+  // Walk through every step but the last on a timer, then park on the last step
+  // (still "active", not "done") until the AI call actually resolves — there's no
+  // real progress signal from a single request/response, so we never claim the
+  // plan is finished before generateAiPlan() says it is.
   const advance = () => {
     if (i >= 0) items[i].classList.replace('is-active', 'is-done');
     i++;
-    if (i >= items.length) { clearInterval(aiqProgressTimer); aiqProgressTimer = null; return; }
     items[i].classList.add('is-active');
+    if (i >= items.length - 1) { clearInterval(aiqProgressTimer); aiqProgressTimer = null; }
   };
   advance();
   aiqProgressTimer = setInterval(advance, 2600);
+}
+
+function aiqFinishProgress() {
+  const listEl = document.getElementById('aiq-progress-list');
+  [...listEl.children].forEach(li => li.classList.replace('is-active', 'is-done'));
 }
 
 function aiqStopProgress() {
@@ -4904,6 +4907,7 @@ async function generateAiPlan() {
     if (!jsonStr) throw new Error('No JSON in response');
 
     const plan = sanitizeAiPlan(JSON.parse(jsonStr));
+    aiqFinishProgress();
     DRAFT_PLAN = plan;
     markDraftBaseline();
     closeAiBuilder();
