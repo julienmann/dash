@@ -3944,22 +3944,43 @@ function applyAiqStravaPrefill() {
 }
 
 // ── Wizard state machine ──
-const AIQ_STEP_COUNT = 15;
+const AIQ_STEP_COUNT     = 15;
+const AIQ_STEP_DISTANCES = 4;
 const AIQ_STEP_RACE_DATE   = 2;
 const AIQ_STEP_TRAIN_START = 5;
 let aiqStep = 0;
+
+// Fixed-distance running races (5K, 10K, etc.) already pin the run distance via the race-type
+// choice in step 0 — asking again on step 4 is redundant. Triathlon legs and "custom" still
+// need it since their distances aren't implied by the selection.
+const AIQ_FIXED_DISTANCE_TYPES = ['5k', '10k', 'half', 'marathon', '50k'];
+function aiqShouldSkipDistancesStep() {
+  return AIQ_FIXED_DISTANCE_TYPES.includes(document.getElementById('aiq-race-type').value);
+}
+
+function aiqVisibleSteps() {
+  const skipDistances = aiqShouldSkipDistancesStep();
+  const steps = [];
+  for (let i = 0; i < AIQ_STEP_COUNT; i++) {
+    if (i === AIQ_STEP_DISTANCES && skipDistances) continue;
+    steps.push(i);
+  }
+  return steps;
+}
 
 function aiqShowStep(n) {
   aiqStep = Math.max(0, Math.min(AIQ_STEP_COUNT - 1, n));
   document.querySelectorAll('#ai-builder-body .aiq-step').forEach(el => {
     el.classList.toggle('hidden', +el.dataset.step !== aiqStep);
   });
-  document.getElementById('aiq-progress-label').textContent = `Question ${aiqStep + 1} of ${AIQ_STEP_COUNT}`;
-  document.getElementById('aiq-progress-fill').style.width = `${((aiqStep + 1) / AIQ_STEP_COUNT) * 100}%`;
-  document.getElementById('aiq-nav-back').textContent = aiqStep === 0 ? 'Cancel' : '← Back';
+  const visible = aiqVisibleSteps();
+  const pos = Math.max(0, visible.indexOf(aiqStep));
+  document.getElementById('aiq-progress-label').textContent = `Question ${pos + 1} of ${visible.length}`;
+  document.getElementById('aiq-progress-fill').style.width = `${((pos + 1) / visible.length) * 100}%`;
+  document.getElementById('aiq-nav-back').textContent = pos === 0 ? 'Cancel' : '← Back';
   document.getElementById('ai-builder-error').classList.add('hidden');
   const nextBtn = document.getElementById('aiq-nav-next');
-  if (aiqStep === AIQ_STEP_COUNT - 1) {
+  if (pos === visible.length - 1) {
     nextBtn.textContent = '✦ Generate plan';
     renderAiqReview();
   } else {
@@ -4369,13 +4390,17 @@ async function generateAiPlan() {
 }
 
 document.getElementById('aiq-nav-back').addEventListener('click', () => {
-  if (aiqStep === 0) closeAiBuilder();
-  else aiqShowStep(aiqStep - 1);
+  const visible = aiqVisibleSteps();
+  const pos = visible.indexOf(aiqStep);
+  if (pos <= 0) closeAiBuilder();
+  else aiqShowStep(visible[pos - 1]);
 });
 document.getElementById('aiq-nav-next').addEventListener('click', () => {
   if (!aiqValidateStep()) return;
-  if (aiqStep === AIQ_STEP_COUNT - 1) generateAiPlan();
-  else aiqShowStep(aiqStep + 1);
+  const visible = aiqVisibleSteps();
+  const pos = visible.indexOf(aiqStep);
+  if (pos === visible.length - 1) generateAiPlan();
+  else aiqShowStep(visible[pos + 1]);
 });
 
 document.getElementById('edit-plan-btn').addEventListener('click', openPlanBuilder);
