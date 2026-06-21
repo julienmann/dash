@@ -30,6 +30,9 @@
   --green:#27AE60;
   --green-dim:rgba(39,174,96,.1);
   --red:#C0392B;
+  /* AI-coaching accent (distinct from the brand orange so AI suggestions read as a separate voice). */
+  --amber:#D97706;
+  --amber-dim:rgba(217,119,6,.1);
   --shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
   --shadow-md:0 4px 16px rgba(0,0,0,.08);
   --radius:10px;
@@ -52,7 +55,8 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .topnav-back{font-size:.75rem;font-weight:500;color:var(--mid);display:flex;align-items:center;gap:.3rem;transition:color .15s;flex-shrink:0;background:none;border:none;cursor:pointer;padding:0;}
 .topnav-back:hover{color:var(--fg);}
 .topnav-links{display:flex;gap:.15rem;flex-shrink:0;}
-.topnav-link{font-size:.75rem;font-weight:500;color:var(--mid);padding:.28rem .6rem;border-radius:5px;transition:color .15s,background .15s;white-space:nowrap;}
+.topnav-link{font-size:.75rem;font-weight:500;color:var(--mid);padding:.42rem .7rem;border-radius:5px;transition:color .15s,background .15s;white-space:nowrap;}
+.topnav-link.active,.topnav-back.active{color:var(--orange-strong);background:var(--orange-dim);font-weight:600;}
 .topnav-link:hover{color:var(--fg);background:var(--bg);}
 .topnav-race{font-size:.72rem;font-weight:700;color:var(--orange-strong);letter-spacing:.015em;}
 .topnav-right{display:flex;align-items:center;gap:.75rem;flex-shrink:0;}
@@ -168,7 +172,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .cal-month-name{font-size:.88rem;font-weight:700;}
 .cal-nav-btns{display:flex;gap:.3rem;}
 .cal-nav-btn{
-  width:28px;height:28px;border:1.5px solid var(--border);color:var(--mid);
+  width:40px;height:40px;border:1.5px solid var(--border);color:var(--mid);
   border-radius:5px;display:flex;align-items:center;justify-content:center;
   font-size:.8rem;transition:all .15s;
 }
@@ -211,7 +215,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 /* ── Day detail popup ── */
 .day-popup-overlay{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);opacity:0;transition:opacity .15s;pointer-events:none;}
 .day-popup-overlay.open{opacity:1;pointer-events:auto;}
-.day-popup{background:var(--card);border-radius:var(--radius);box-shadow:0 8px 30px rgba(0,0,0,.18);max-width:420px;width:calc(100% - 2rem);padding:1.5rem;position:relative;transform:translateY(8px);transition:transform .15s;max-height:90vh;overflow-y:auto;}
+.day-popup{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-md);max-width:420px;width:min(420px,calc(100vw - 1.5rem));padding:1.5rem;position:relative;transform:translateY(8px);transition:transform .15s;max-height:90vh;overflow-y:auto;}
 .day-popup-overlay.open .day-popup{transform:translateY(0);}
 .day-popup-close{position:absolute;top:.75rem;right:.75rem;background:none;border:none;cursor:pointer;color:var(--mid);font-size:1rem;padding:.25rem;line-height:1;border-radius:4px;transition:color .1s,background .1s;}
 .day-popup-close:hover{color:var(--fg);background:var(--bg);}
@@ -229,7 +233,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .day-popup-stat-value{color:var(--fg);font-weight:600;}
 .day-popup-stat-value.is-pace{color:var(--orange-strong);}
 .day-popup-stat-note{font-size:.65rem;color:var(--mid);font-weight:400;margin-left:.3rem;}
-.day-popup-structure{background:var(--bg);border-radius:6px;padding:.55rem .7rem;font-size:.75rem;color:var(--mid);line-height:1.6;border-left:2.5px solid var(--border);margin-top:.5rem;}
+.day-popup-structure{background:var(--bg);border-radius:6px;padding:.55rem .7rem;font-size:.75rem;color:var(--mid);line-height:1.6;border:1px solid var(--border);margin-top:.5rem;}
 .day-popup-section{border-top:1px solid var(--border);margin-top:.75rem;padding-top:.65rem;}
 .day-popup-section-lbl{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--mid);margin-bottom:.45rem;}
 .day-popup-focus{font-size:.78rem;color:var(--fg);line-height:1.6;font-style:italic;}
@@ -244,7 +248,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .ai-panel-inner{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
 .ai-panel-hdr{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.25rem;cursor:pointer;user-select:none;}
 .ai-panel-title-row{display:flex;align-items:center;gap:.55rem;}
-.ai-panel-icon{color:#D97706;font-style:normal;font-size:.85rem;}
+.ai-panel-icon{color:var(--amber);font-style:normal;font-size:.85rem;}
 .ai-panel-title{font-size:.8rem;font-weight:700;color:var(--fg);}
 .ai-panel-meta{font-size:.7rem;color:var(--mid);}
 .ai-panel-toggle{font-size:.72rem;color:var(--mid);padding:.2rem .4rem;border-radius:4px;transition:background .1s;}
@@ -261,38 +265,40 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .ai-ask{padding:.85rem 1.25rem 1rem;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:.5rem;}
 .ai-ask-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--mid);}
 .ai-ask-row{display:flex;gap:.5rem;align-items:flex-end;}
-.ai-ask-input{flex:1;resize:vertical;min-height:2.3rem;max-height:8rem;border:1.5px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg);font-family:var(--sans);font-size:.8rem;line-height:1.5;padding:.5rem .65rem;outline:none;transition:border-color .15s;}
-.ai-ask-input:focus{border-color:#D97706;}
-.ai-ask-btn{padding:.5rem .9rem;background:#D97706;color:#fff;font-weight:700;font-size:.75rem;border-radius:6px;white-space:nowrap;transition:opacity .15s;}
+.ai-ask-input{flex:1;resize:vertical;min-height:2.3rem;max-height:8rem;border:1.5px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg);font-family:var(--sans);font-size:.8rem;line-height:1.5;padding:.5rem .65rem;transition:border-color .15s;}
+.ai-ask-input:focus{border-color:var(--orange-strong);}
+.ai-ask-input:focus-visible{outline:2px solid var(--orange-strong);outline-offset:2px;}
+.ai-ask-btn{padding:.5rem .9rem;background:var(--amber);color:#fff;font-weight:700;font-size:.75rem;border-radius:6px;white-space:nowrap;transition:opacity .15s;}
 .ai-ask-btn:hover{opacity:.88;}
-.ai-question{margin:.85rem 1.25rem;padding:.75rem .9rem;background:rgba(217,119,6,.08);border:1px solid rgba(217,119,6,.28);border-radius:8px;display:flex;flex-direction:column;gap:.55rem;}
-.ai-question-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#D97706;}
+.ai-question{margin:.85rem 1.25rem;padding:.75rem .9rem;background:var(--amber-dim);border:1px solid rgba(217,119,6,.28);border-radius:8px;display:flex;flex-direction:column;gap:.55rem;}
+.ai-question-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--amber);}
 .ai-question-text{font-size:.8rem;color:var(--fg);line-height:1.6;}
 .ai-panel-loading{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;font-size:.76rem;font-weight:600;color:var(--mid);}
 .ai-loading-bar-wrap{width:80px;height:3px;background:var(--border);border-radius:99px;overflow:hidden;}
-.ai-loading-bar{height:100%;width:40%;background:#D97706;border-radius:99px;animation:loadbar 1s ease-in-out infinite alternate;}
+.ai-loading-bar{height:100%;width:40%;background:var(--amber);border-radius:99px;animation:loadbar 1s ease-in-out infinite alternate;}
 .ai-panel-error{padding:1rem 1.25rem;font-size:.76rem;color:#D93025;font-weight:500;}
 .ai-panel-setup{padding:1.1rem 1.25rem;display:flex;flex-direction:column;gap:.65rem;}
 .ai-panel-setup-hdr{font-size:.82rem;font-weight:700;display:flex;align-items:center;gap:.45rem;}
 .ai-panel-setup-sub{font-size:.75rem;color:var(--mid);line-height:1.6;}
 .ai-key-row{display:flex;gap:.5rem;}
-.ai-key-input{flex:1;border:1.5px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg);font-family:var(--sans);font-size:.82rem;padding:.45rem .7rem;outline:none;transition:border-color .15s;}
-.ai-key-input:focus{border-color:#D97706;}
-.ai-key-btn{padding:.45rem .9rem;background:#D97706;color:#fff;font-weight:700;font-size:.8rem;border-radius:6px;white-space:nowrap;transition:opacity .15s;}
+.ai-key-input{flex:1;border:1.5px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg);font-family:var(--sans);font-size:.82rem;padding:.45rem .7rem;transition:border-color .15s;}
+.ai-key-input:focus{border-color:var(--orange-strong);}
+.ai-key-input:focus-visible{outline:2px solid var(--orange-strong);outline-offset:2px;}
+.ai-key-btn{padding:.45rem .9rem;background:var(--amber);color:#fff;font-weight:700;font-size:.8rem;border-radius:6px;white-space:nowrap;transition:opacity .15s;}
 .ai-key-btn:hover{opacity:.88;}
 .ai-key-error{font-size:.72rem;color:#D93025;font-weight:500;min-height:1em;}
-.day-adapt-ai{color:#D97706;background:rgba(217,119,6,.1);}
-.cal-adapt-ai{color:#D97706;}
+.day-adapt-ai{color:var(--amber);background:var(--amber-dim);}
+.cal-adapt-ai{color:var(--amber);}
 
 /* ── Adaptation badges ── */
 .day-adapt{font-size:.5rem;font-weight:700;padding:.1em .32em;border-radius:3px;letter-spacing:.02em;line-height:1.4;}
 .day-adapt-moved_from{color:#9CA3AF;background:rgba(156,163,175,.12);}
-.day-adapt-moved_here{color:#D97706;background:rgba(217,119,6,.1);}
+.day-adapt-moved_here{color:var(--amber);background:var(--amber-dim);}
 .day-adapt-makeup    {color:#8B5CF6;background:rgba(139,92,246,.1);}
 .day-adapt-reduced   {color:#4A90D9;background:rgba(74,144,217,.1);}
 .cal-adapt{font-size:.5rem;font-weight:700;display:inline-block;line-height:1;margin-left:1px;}
 .cal-adapt-moved_from{color:#9CA3AF;}
-.cal-adapt-moved_here{color:#D97706;}
+.cal-adapt-moved_here{color:var(--amber);}
 .cal-adapt-makeup    {color:#8B5CF6;}
 .cal-adapt-reduced   {color:#4A90D9;}
 
@@ -319,7 +325,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .connect-logo{display:flex;align-items:center;gap:.55rem;margin-bottom:1.4rem;}
 .connect-logo-icon{width:30px;height:30px;background:var(--orange);border-radius:5px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .connect-logo-icon svg{width:17px;height:17px;fill:#fff;}
-.connect-logo-text{font-size:1.05rem;font-weight:800;color:var(--orange);letter-spacing:-.01em;}
+.connect-logo-text{font-size:1.05rem;font-weight:800;color:var(--orange-strong);letter-spacing:-.01em;}
 .connect-heading{font-size:.95rem;font-weight:700;margin-bottom:.25rem;}
 .connect-sub{font-size:.8rem;color:var(--mid);margin-bottom:1.1rem;line-height:1.6;}
 .connect-note{font-size:.76rem;color:var(--mid);line-height:1.7;margin-bottom:1.1rem;background:var(--bg);border-radius:6px;padding:.8rem .9rem;border:1px solid var(--border);}
@@ -328,8 +334,9 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .connect-note code{font-size:.73rem;background:#fff;border:1px solid var(--border);padding:.1em .35em;border-radius:3px;font-family:ui-monospace,monospace;}
 .form-group{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.8rem;}
 .form-label{font-size:.68rem;font-weight:600;color:var(--fg);letter-spacing:.01em;}
-.form-input{border:1.5px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg);font-family:var(--sans);font-size:.86rem;padding:.52rem .72rem;outline:none;transition:border-color .15s;width:100%;}
-.form-input:focus{border-color:var(--orange);}
+.form-input{border:1.5px solid var(--border);border-radius:6px;background:var(--card);color:var(--fg);font-family:var(--sans);font-size:.86rem;padding:.52rem .72rem;transition:border-color .15s;width:100%;}
+.form-input:focus{border-color:var(--orange-strong);}
+.form-input:focus-visible{outline:2px solid var(--orange-strong);outline-offset:2px;}
 .connect-btn{width:100%;padding:.68rem;background:var(--orange-strong);color:#fff;font-weight:700;font-size:.86rem;border:none;border-radius:6px;transition:opacity .15s;margin-top:.2rem;}
 .connect-btn:hover{opacity:.88;}
 .connect-error{font-size:.73rem;color:#D93025;margin-top:.55rem;min-height:1em;font-weight:500;}
@@ -391,7 +398,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .sport-add-dropdown{
   position:absolute;top:calc(100% + 6px);left:0;z-index:200;
   background:var(--card);border:1.5px solid var(--border);border-radius:10px;
-  padding:.3rem;min-width:155px;box-shadow:0 6px 20px rgba(0,0,0,.13);display:none;
+  padding:.3rem;min-width:155px;box-shadow:var(--shadow-md);display:none;
 }
 .sport-add-dropdown.open{display:block;}
 .sport-add-option{
@@ -465,7 +472,6 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .data-row{cursor:pointer;transition:background .1s;}
 .data-row:hover td{background:#FAFAFA;}
 .data-row.is-open td{background:rgba(252,76,2,.04);}
-.data-row.is-open td:first-child{border-left:3px solid var(--orange);padding-left:calc(1.5rem - 3px);}
 
 .detail-tr td{padding:0;background:#FAFAFA;}
 .detail-content{display:grid;grid-template-rows:0fr;overflow:hidden;transition:grid-template-rows .3s ease-out;}
@@ -539,7 +545,7 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 .phase-card-hdr .form-group{margin-bottom:0;}
 .phase-name-group{flex:1;min-width:120px;}
 .phase-color-input{width:2.4rem;height:2.4rem;border:1.5px solid var(--border);border-radius:6px;padding:2px;background:var(--card);cursor:pointer;}
-.icon-btn{width:2.4rem;height:2.4rem;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);border-radius:6px;color:var(--mid);font-size:.95rem;transition:all .15s;flex-shrink:0;}
+.icon-btn{width:2.86rem;height:2.86rem;display:flex;align-items:center;justify-content:center;border:1.5px solid var(--border);border-radius:6px;color:var(--mid);font-size:.95rem;transition:all .15s;flex-shrink:0;}
 .icon-btn:hover{border-color:var(--fg);color:var(--fg);}
 .icon-btn:disabled{opacity:.35;cursor:default;}
 .icon-btn:disabled:hover{border-color:var(--border);color:var(--mid);}
@@ -568,9 +574,13 @@ footer{border-top:1px solid var(--border);background:var(--card);}
    the dashed style stays reserved for "+ Add" placeholder actions. */
 .builder-cta-btn{border-style:solid;margin-bottom:0;}
 .builder-error{font-size:.78rem;color:#C0392B;font-weight:600;background:rgba(192,57,43,.08);border:1px solid rgba(192,57,43,.25);border-radius:6px;padding:.6rem .8rem;margin-bottom:1.25rem;}
+.builder-status{font-size:.74rem;font-weight:600;color:var(--mid);margin-bottom:.9rem;display:flex;gap:.4rem;align-items:center;}
+.builder-status.over{color:var(--red);}
+.builder-status .builder-status-tag{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.12em .4em;border-radius:3px;background:var(--bg);color:var(--mid);}
+.builder-status.over .builder-status-tag{background:rgba(192,57,43,.12);color:var(--red);}
 .builder-chooser{display:flex;gap:1rem;margin-bottom:1.25rem;}
 .builder-chooser-card{flex:1;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.5rem;cursor:pointer;border:2px solid transparent;transition:border-color .15s,box-shadow .15s;text-align:center;}
-.builder-chooser-card:hover{border-color:var(--orange);box-shadow:0 2px 12px rgba(252,76,2,.12);}
+.builder-chooser-card:hover{border-color:var(--orange);box-shadow:var(--shadow-md);}
 .builder-chooser-icon{font-size:1.5rem;margin-bottom:.6rem;display:block;}
 .builder-chooser-label{font-size:.9rem;font-weight:700;color:var(--fg);margin-bottom:.3rem;}
 .builder-chooser-desc{font-size:.72rem;color:var(--mid);line-height:1.5;}
@@ -650,8 +660,15 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 }
 @media(max-width:480px){
   .race-hdr-right{display:none;}
-  .topnav-links{display:none;}
+  /* Collapse the inline nav links into a wrap-friendly row instead of hiding them outright. */
+  .topnav-links{display:flex;flex-wrap:wrap;gap:.2rem;justify-content:flex-end;}
+  .topnav-link{font-size:.72rem;padding:.4rem .55rem;}
 }
+/* ── Toasts (quiet, transient feedback — no badges, no gamification) ── */
+.toast-wrap{position:fixed;top:.9rem;right:.9rem;z-index:1000;display:flex;flex-direction:column;gap:.5rem;max-width:min(20rem,calc(100vw - 1.8rem));pointer-events:none;}
+.toast{background:var(--fg);color:#fff;font-size:.78rem;font-weight:500;line-height:1.45;padding:.6rem .8rem;border-radius:7px;box-shadow:var(--shadow-md);opacity:0;transform:translateY(-6px);transition:opacity .18s,transform .18s;pointer-events:auto;}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.is-error{background:var(--red);}
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}
 }
@@ -877,6 +894,7 @@ footer{border-top:1px solid var(--border);background:var(--card);}
     <button class="builder-close" id="builder-cancel-top" type="button" aria-label="Close plan editor">✕</button>
   </div>
   <div id="builder-body"></div>
+  <div id="builder-status" class="builder-status hidden" aria-live="polite"></div>
   <div id="builder-error" class="builder-error hidden" role="alert"></div>
   <div class="builder-actions" id="builder-actions">
     <button class="builder-btn builder-btn-ghost" id="builder-reset" type="button">Reset to default plan</button>
@@ -1136,6 +1154,28 @@ const SPORT_CFG = {
 // the final phase stretching to meet raceDate exactly.
 const PLAN_KEY = 'jm_plan_v1';
 
+// ── Toast — quiet, transient feedback (no badges, no gamification) ──
+function toast(message, opts = {}) {
+  let wrap = document.getElementById('toast-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.id = 'toast-wrap';
+    wrap.className = 'toast-wrap';
+    wrap.setAttribute('aria-live', 'polite');
+    document.body.appendChild(wrap);
+  }
+  const el = document.createElement('div');
+  el.className = 'toast' + (opts.error ? ' is-error' : '');
+  el.setAttribute('role', opts.error ? 'alert' : 'status');
+  el.textContent = message;
+  wrap.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 240);
+  }, opts.duration || 3200);
+}
+
 // ── Account session — set by the marketing page on sign-up/login ────
 const SESSION_KEY = 'jm_session_v1';
 function getSession()  { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; } }
@@ -1160,7 +1200,7 @@ async function pullPlanFromServer() {
   if (!session) return;
   try {
     const res  = await fetch(WORKER_URL + '/plan', { headers: { 'Authorization': 'Bearer ' + session.token } });
-    if (res.status === 401) { clearSession(); return; }
+    if (res.status === 401) { clearSession(); renderAccountUI?.(); toast('Your session expired. Log in again to sync across devices.', { error: true, duration: 5000 }); return; }
     const data = await res.json();
     if (data.plan && JSON.stringify(data.plan) !== localStorage.getItem(PLAN_KEY)) {
       localStorage.setItem(PLAN_KEY, JSON.stringify(data.plan));
@@ -2258,6 +2298,7 @@ function renderCalendar() {
 // WORKER_URL       — your deployed Cloudflare Worker URL (handles token exchange with the secret)
 const STRAVA_CLIENT_ID = '250989';
 const WORKER_URL       = 'https://strava-auth.jmdashboard.workers.dev';
+const OAUTH_STATE_KEY  = 'jm_oauth_state';
 
 const STORAGE_KEY = 'jm_strava_v1';
 let gAthlete, gStats, gActivities, gCfg;
@@ -2350,7 +2391,15 @@ function saveCfg(c) { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); }
 function clearCfg() { localStorage.removeItem(STORAGE_KEY); }
 
 // ── Strava UI states ─────────────────────────────────────────────
+// Reflect the current view in the top nav so the athlete always knows where they are.
+function setActiveNav(name) {
+  const map = { home: 'nav-home', builder: 'edit-plan-btn', connect: 'nav-connect' };
+  Object.values(map).forEach(id => document.getElementById(id)?.classList.remove('active'));
+  if (map[name]) document.getElementById(map[name])?.classList.add('active');
+}
+
 function showStravaSetup() {
+  setActiveNav('connect');
   document.getElementById('strava-setup').classList.remove('hidden');
   document.getElementById('strava-loading').classList.add('hidden');
   document.getElementById('strava-content').classList.add('hidden');
@@ -2363,6 +2412,7 @@ function showStravaSetup() {
 // Planner without Strava: the schedule, presets, AI, and manual builder all work
 // client-side, so let the athlete in without forcing an OAuth connection.
 function showPlannerOnly() {
+  setActiveNav('home');
   document.getElementById('strava-setup').classList.add('hidden');
   document.getElementById('strava-loading').classList.add('hidden');
   document.getElementById('strava-content').classList.add('hidden');
@@ -2378,6 +2428,7 @@ function showStravaLoading() {
   document.getElementById('strava-topbar').innerHTML = '';
 }
 function showStravaContent() {
+  setActiveNav('home');
   document.getElementById('strava-setup').classList.add('hidden');
   document.getElementById('strava-loading').classList.add('hidden');
   document.getElementById('strava-content').classList.remove('hidden');
@@ -2394,7 +2445,10 @@ function showStravaContent() {
 function redirectUri() { return window.location.origin + window.location.pathname; }
 
 function startOAuth() {
-  const p = new URLSearchParams({ client_id:STRAVA_CLIENT_ID, response_type:'code', redirect_uri:redirectUri(), approval_prompt:'auto', scope:'activity:read_all,read' });
+  // CSRF protection: stash a random state and require it back on the callback.
+  const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
+  try { sessionStorage.setItem(OAUTH_STATE_KEY, state); } catch {}
+  const p = new URLSearchParams({ client_id:STRAVA_CLIENT_ID, response_type:'code', redirect_uri:redirectUri(), approval_prompt:'auto', scope:'activity:read_all,read', state });
   window.location.href = 'https://www.strava.com/oauth/authorize?' + p;
 }
 
@@ -3295,6 +3349,17 @@ async function stravaInit() {
   if (errParam) { clearCfg(); showStravaSetup(); document.getElementById('setup-error').textContent = 'Authorization denied.'; return; }
 
   if (code) {
+    // CSRF check: the state echoed by Strava must match the one we stored before redirecting.
+    const returnedState = params.get('state');
+    let expectedState = null;
+    try { expectedState = sessionStorage.getItem(OAUTH_STATE_KEY); sessionStorage.removeItem(OAUTH_STATE_KEY); } catch {}
+    if (!expectedState || returnedState !== expectedState) {
+      clearCfg();
+      window.history.replaceState({}, '', window.location.pathname);
+      showStravaSetup();
+      document.getElementById('setup-error').textContent = 'Sign-in could not be verified. Please connect again.';
+      return;
+    }
     showStravaLoading();
     window.history.replaceState({}, '', window.location.pathname);
     try { const tokens = await exchangeCode(code); cfg = {...(cfg||{}),...tokens}; saveCfg(cfg); }
@@ -3360,10 +3425,19 @@ function emptyRaceEvent() {
   return { date:DRAFT_PLAN.trainStart, label:'New Event', duration:60, weekTemplate:null };
 }
 
+// Snapshot of the draft as last rendered into the editor, so we can detect unsaved edits
+// before a preset / AI load replaces them.
+let DRAFT_BASELINE = null;
+function markDraftBaseline() { DRAFT_BASELINE = JSON.stringify(DRAFT_PLAN); }
+function isDraftDirty() { return DRAFT_BASELINE !== null && JSON.stringify(DRAFT_PLAN) !== DRAFT_BASELINE; }
+
 function openPlanBuilder() {
+  setActiveNav('builder');
+  if (location.hash !== '#/builder') history.replaceState(null, '', '#/builder');
   builderPrevHidden = BUILDER_VIEWS.map(id => document.getElementById(id).classList.contains('hidden'));
   BUILDER_VIEWS.forEach(id => document.getElementById(id).classList.add('hidden'));
   DRAFT_PLAN = JSON.parse(JSON.stringify(loadRawPlan()));
+  DRAFT_BASELINE = null;
   document.getElementById('builder-error').classList.add('hidden');
   document.getElementById('ai-builder-body').classList.add('hidden');
   document.getElementById('plan-builder').classList.remove('hidden');
@@ -3419,6 +3493,7 @@ function openBuilderCreate() {
 
 function openBuilderEdit() {
   document.getElementById('builder-actions').classList.remove('hidden');
+  markDraftBaseline();
   renderPlanBuilderSimple();
 }
 
@@ -3427,6 +3502,8 @@ function closePlanBuilder() {
   BUILDER_VIEWS.forEach((id, i) => {
     document.getElementById(id).classList.toggle('hidden', builderPrevHidden ? builderPrevHidden[i] : id !== 'training');
   });
+  if (location.hash === '#/builder') history.replaceState(null, '', location.pathname + location.search);
+  setActiveNav('home');
 }
 
 function swapAdjacent(arr, i, j) {
@@ -3601,6 +3678,9 @@ function attachBuilderListeners(rerenderFn) {
       } else {
         DRAFT_PLAN[field] = val;
       }
+      // Clear a stale save error and refresh the live weeks readout as the athlete types.
+      document.getElementById('builder-error').classList.add('hidden');
+      updateBuilderStatus();
     });
   });
 
@@ -3620,7 +3700,11 @@ function attachBuilderListeners(rerenderFn) {
       const ei = el.dataset.eventIdx !== undefined ? +el.dataset.eventIdx : null;
       if (a === 'phase-up')   swapAdjacent(DRAFT_PLAN.phases, pi, pi - 1);
       if (a === 'phase-down') swapAdjacent(DRAFT_PLAN.phases, pi, pi + 1);
-      if (a === 'phase-remove' && DRAFT_PLAN.phases.length > 1) DRAFT_PLAN.phases.splice(pi, 1);
+      if (a === 'phase-remove' && DRAFT_PLAN.phases.length > 1) {
+        const ph = DRAFT_PLAN.phases[pi];
+        if (!confirm(`Remove the "${ph?.name || 'this'}" phase? This shortens your plan.`)) return;
+        DRAFT_PLAN.phases.splice(pi, 1);
+      }
       if (a === 'toggle-recovery') {
         const ph = DRAFT_PLAN.phases[pi];
         if (ph.recoveryTemplate) {
@@ -3630,7 +3714,11 @@ function attachBuilderListeners(rerenderFn) {
           if (!ph.recoveryEvery) ph.recoveryEvery = 4;
         }
       }
-      if (a === 'event-remove') DRAFT_PLAN.raceEvents.splice(ei, 1);
+      if (a === 'event-remove') {
+        const ev = DRAFT_PLAN.raceEvents[ei];
+        if (!confirm(`Remove the tune-up race "${ev?.label || 'event'}"?`)) return;
+        DRAFT_PLAN.raceEvents.splice(ei, 1);
+      }
       if (a === 'toggle-week-template') {
         const ev = DRAFT_PLAN.raceEvents[ei];
         ev.weekTemplate = ev.weekTemplate ? null : emptyTemplate();
@@ -3647,6 +3735,8 @@ function attachBuilderListeners(rerenderFn) {
     DRAFT_PLAN.raceEvents.push(emptyRaceEvent());
     rerenderFn();
   });
+
+  updateBuilderStatus();
 }
 
 function validatePlan(p) {
@@ -3663,6 +3753,26 @@ function validatePlan(p) {
   }
   if (p.raceEvents.some(e => !DATE_RE.test(e.date))) return 'Each race event needs a valid date.';
   return null;
+}
+
+// Live, non-blocking readout so the athlete sees phases overflowing race day while editing,
+// not only when they hit Save. Mirrors the overflow check in validatePlan.
+function updateBuilderStatus() {
+  const el = document.getElementById('builder-status');
+  if (!el || !DRAFT_PLAN) return;
+  const p = DRAFT_PLAN;
+  if (!DATE_RE.test(p.trainStart) || !DATE_RE.test(p.raceDate) || p.raceDate <= p.trainStart || !p.phases.length) {
+    el.classList.add('hidden');
+    return;
+  }
+  const availDays   = daysBetween(p.trainStart, p.raceDate);
+  const availWk     = Math.round(availDays / 7);
+  const totalWk     = p.phases.reduce((s, ph) => s + (Number(ph.weeks) || 0), 0);
+  const nonLastDays = p.phases.length > 1 ? p.phases.slice(0, -1).reduce((s, ph) => s + (Number(ph.weeks) || 0) * 7, 0) : 0;
+  const over        = p.phases.length > 1 && nonLastDays >= availDays;
+  el.classList.remove('hidden');
+  el.classList.toggle('over', over);
+  el.innerHTML = `<span class="builder-status-tag">${over ? 'Too long' : 'Fits'}</span>Phases total ${totalWk} wk · about ${availWk} wk until race day`;
 }
 
 // ════════════════════════════════════════════
@@ -3799,8 +3909,10 @@ function buildPreset(id) {
 // Load a preset into the draft and re-render the builder so the user can review/tweak it.
 function applyPreset(id) {
   const plan = buildPreset(id);
-  if (!plan) return;
+  if (!plan) { toast('That preset could not be loaded.', { error: true }); return; }
+  if (isDraftDirty() && !confirm('Replace your current edits with this preset? Unsaved changes will be lost.')) return;
   DRAFT_PLAN = plan;
+  markDraftBaseline();
   document.getElementById('builder-error').classList.add('hidden');
   document.getElementById('builder-actions').classList.remove('hidden');
   renderPlanBuilderSimple();
@@ -4073,6 +4185,18 @@ function aiqValidateStep() {
     const raceDate = aiqVal('aiq-race-date');
     if (!DATE_RE.test(trainStart)) { aiqShowErr('Please choose a training start date.'); return false; }
     if (raceDate && raceDate <= trainStart) { aiqShowErr('Training start date must be before the race date.'); return false; }
+  }
+  if (aiqStep === AIQ_STEP_DISTANCES) {
+    // Each visible, filled distance must contain a number (e.g. "1.9 km", "500 m").
+    for (const id of ['aiq-swim-dist', 'aiq-bike-dist', 'aiq-run-dist']) {
+      const group = document.getElementById(id)?.closest('.form-group');
+      if (!group || group.classList.contains('hidden')) continue;
+      const val = aiqVal(id);
+      if (val && !/\d/.test(val)) {
+        aiqShowErr('Enter each distance as a number with a unit, like "1.9 km" or "500 m".');
+        return false;
+      }
+    }
   }
   return true;
 }
@@ -4441,6 +4565,7 @@ async function generateAiPlan() {
 
     const plan = sanitizeAiPlan(JSON.parse(jsonStr));
     DRAFT_PLAN = plan;
+    markDraftBaseline();
     closeAiBuilder();
     document.getElementById('builder-actions').classList.remove('hidden');
     renderPlanBuilderSimple();
@@ -4492,6 +4617,8 @@ document.getElementById('builder-save').addEventListener('click', () => {
   }
   savePlan(DRAFT_PLAN);
   localStorage.removeItem(AI_OPT_KEY);
+  // Persist a one-shot flag so the post-reload page can confirm the save was applied.
+  try { sessionStorage.setItem('jm_saved_toast', '1'); } catch {}
   location.reload();
 });
 
@@ -4698,8 +4825,14 @@ function renderAccountUI() {
 renderAccountUI();
 pullPlanFromServer();
 
+// Confirm a plan save that triggered a reload (the toast can't survive the reload itself).
+try { if (sessionStorage.getItem('jm_saved_toast')) { sessionStorage.removeItem('jm_saved_toast'); toast('Plan saved.'); } } catch {}
+
 // Strava (async, may show connect card or content)
 stravaInit();
+
+// Deep link: restore the Plan Builder if the URL points at it (e.g. a bookmark or reload).
+if (location.hash === '#/builder') openPlanBuilder();
 </script>
 </body>
 </html>

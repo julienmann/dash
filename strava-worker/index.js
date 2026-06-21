@@ -2,8 +2,10 @@
  * Strava OAuth + Anthropic AI proxy + accounts worker
  *
  * Keeps the Strava Client Secret, Anthropic API key, and password hashes
- * server-side. CORS headers restrict browser access to ALLOWED_ORIGIN; the
- * server-side Origin check blocks non-browser callers that ignore CORS.
+ * server-side. The server-side Origin check (exact match against ALLOWED_ORIGIN)
+ * is the real gate — CORS response headers alone don't stop non-browser callers.
+ * The /ai proxy additionally allow-lists models, caps max_tokens and body size,
+ * and is rate-limited so it can't be abused to spend Anthropic credits.
  *
  * Required secrets (set via `wrangler secret put`):
  *   STRAVA_CLIENT_ID     — numeric ID from strava.com/settings/api
@@ -17,37 +19,66 @@
  *
  * Required binding (set in wrangler.toml [[d1_databases]]):
  *   DB — D1 database created from schema.sql, used for accounts + synced plans.
+ *
+ * Optional binding (set in wrangler.toml [[kv_namespaces]]):
+ *   RATE_LIMIT — KV namespace for per-IP rate limiting on /ai and /auth/*.
+ *                When unbound, rate limiting is disabled (handlers still work).
  */
 
 const STRAVA_TOKEN_URL  = 'https://www.strava.com/oauth/token';
 const ANTHROPIC_URL     = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
-const SESSION_TTL_SEC   = 60 * 60 * 24 * 90; // 90 days
+const SESSION_TTL_SEC   = 60 * 60 * 24 * 30; // 30 days (HMAC tokens are not revocable; keep short)
+
+// AI proxy guards — the worker holds the Anthropic key, so the browser must not be able to
+// pick arbitrary models, unbounded output, or oversized prompts on the owner's dime.
+const AI_ALLOWED_MODELS = [
+  'claude-sonnet-4-6',
+  'claude-3-5-sonnet-20241022',
+  'claude-3-5-haiku-20241022',
+  'claude-3-haiku-20240307',
+];
+const AI_MAX_TOKENS_CAP  = 8192;
+const AI_MAX_BODY_BYTES  = 50_000;
+const PLAN_MAX_BYTES     = 1_000_000; // 1 MB cap on a synced plan
+
+// Rate-limit budgets (requests per window per IP). Enforced only when a RATE_LIMIT KV
+// namespace is bound; no-ops otherwise so local dev / pre-deploy keeps working.
+const RATE_LIMITS = {
+  ai:   { limit: 30, windowSec: 60 },
+  auth: { limit: 10, windowSec: 60 },
+};
 
 export default {
   async fetch(req, env) {
-    const origin         = req.headers.get('Origin') || req.headers.get('Referer') || '';
+    // Reduce a Referer (which carries a path) to a bare origin so exact-matching works.
+    let refererOrigin = '';
+    try { refererOrigin = new URL(req.headers.get('Referer') || '').origin; } catch { /* ignore */ }
+    const origin         = req.headers.get('Origin') || refererOrigin || '';
     const allowedOrigins = (env.ALLOWED_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
-    const allowOrigin    = allowedOrigins.find(a => origin.startsWith(a)) || allowedOrigins[0] || '*';
+    // Exact match only. `startsWith` would let https://julienmann.ca.evil.com through.
+    const isAllowed      = allowedOrigins.includes(origin);
+    const allowOrigin    = isAllowed ? origin : '';
 
     if (req.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(allowOrigin) });
     }
 
-    // Server-side origin check — CORS headers alone don't stop non-browser callers
-    if (allowedOrigins.length && !allowedOrigins.some(a => origin.startsWith(a))) {
+    // Fail closed: require a configured allow-list and an exact origin match. This server-side
+    // check is the real gate — CORS response headers alone don't stop non-browser callers.
+    if (!allowedOrigins.length || !isAllowed) {
       return json({ error: 'Forbidden' }, 403, allowOrigin);
     }
 
     const url = new URL(req.url);
 
-    if (url.pathname === '/auth/register' && req.method === 'POST') return handleRegister(req, env, allowOrigin);
-    if (url.pathname === '/auth/login'    && req.method === 'POST') return handleLogin(req, env, allowOrigin);
+    if (url.pathname === '/auth/register' && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'auth', handleRegister);
+    if (url.pathname === '/auth/login'    && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'auth', handleLogin);
     if (url.pathname === '/plan'          && req.method === 'GET')  return handleGetPlan(req, env, allowOrigin);
     if (url.pathname === '/plan'          && req.method === 'PUT')  return handlePutPlan(req, env, allowOrigin);
     if (url.pathname === '/account'       && req.method === 'GET')  return handleGetAccount(req, env, allowOrigin);
 
-    if (url.pathname === '/ai' && req.method === 'POST') return handleAi(req, env, allowOrigin);
+    if (url.pathname === '/ai' && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'ai', handleAi);
 
     if (req.method === 'POST' && (url.pathname === '/' || url.pathname === '')) {
       if (!env.STRAVA_CLIENT_ID || !env.STRAVA_CLIENT_SECRET) {
@@ -60,10 +91,38 @@ export default {
   },
 };
 
+// ── Rate limiting (KV-optional) ──────────────────────────────────
+// Fixed-window counter keyed on client IP. No-ops when env.RATE_LIMIT (a KV namespace) is
+// not bound, so the worker runs unchanged in local dev and before the namespace is created.
+
+async function withRateLimit(req, env, allowOrigin, bucket, handler) {
+  const overLimit = await isRateLimited(req, env, bucket);
+  if (overLimit) return json({ error: 'Too many requests — slow down and try again shortly' }, 429, allowOrigin);
+  return handler(req, env, allowOrigin);
+}
+
+async function isRateLimited(req, env, bucket) {
+  if (!env.RATE_LIMIT) return false; // KV not bound → limiting disabled
+  const cfg = RATE_LIMITS[bucket];
+  if (!cfg) return false;
+  const ip     = req.headers.get('CF-Connecting-IP') || 'unknown';
+  const window = Math.floor(Date.now() / 1000 / cfg.windowSec);
+  const key    = `rl:${bucket}:${ip}:${window}`;
+  try {
+    const current = parseInt(await env.RATE_LIMIT.get(key), 10) || 0;
+    if (current >= cfg.limit) return true;
+    await env.RATE_LIMIT.put(key, String(current + 1), { expirationTtl: cfg.windowSec });
+    return false;
+  } catch {
+    return false; // never let a KV hiccup take down the endpoint
+  }
+}
+
 // ── Accounts ─────────────────────────────────────────────────────
 
 async function handleRegister(req, env, allowOrigin) {
   if (!env.DB) return json({ error: 'Accounts not configured — bind a D1 database as DB' }, 503, allowOrigin);
+  if (!env.SESSION_SECRET) return json({ error: 'Accounts not configured — set SESSION_SECRET secret' }, 503, allowOrigin);
 
   let body;
   try { body = await req.json(); }
@@ -90,6 +149,7 @@ async function handleRegister(req, env, allowOrigin) {
 
 async function handleLogin(req, env, allowOrigin) {
   if (!env.DB) return json({ error: 'Accounts not configured — bind a D1 database as DB' }, 503, allowOrigin);
+  if (!env.SESSION_SECRET) return json({ error: 'Accounts not configured — set SESSION_SECRET secret' }, 503, allowOrigin);
 
   let body;
   try { body = await req.json(); }
@@ -139,11 +199,16 @@ async function handlePutPlan(req, env, allowOrigin) {
   catch { return json({ error: 'Invalid JSON body' }, 400, allowOrigin); }
   if (!body.plan) return json({ error: 'Missing plan' }, 400, allowOrigin);
 
+  const planJson = JSON.stringify(body.plan);
+  if (new TextEncoder().encode(planJson).length > PLAN_MAX_BYTES) {
+    return json({ error: 'Plan too large' }, 413, allowOrigin);
+  }
+
   const updatedAt = Date.now();
   await env.DB.prepare(
     'INSERT INTO plans (user_id, plan_json, updated_at) VALUES (?, ?, ?) ' +
     'ON CONFLICT(user_id) DO UPDATE SET plan_json = excluded.plan_json, updated_at = excluded.updated_at'
-  ).bind(userId, JSON.stringify(body.plan), updatedAt).run();
+  ).bind(userId, planJson, updatedAt).run();
 
   return json({ ok: true, updatedAt }, 200, allowOrigin);
 }
@@ -185,7 +250,12 @@ async function handleStrava(req, env, allowOrigin) {
 
   const data = await stravaRes.json();
   if (!stravaRes.ok) {
-    return json({ error: data.message || 'Strava rejected the request' }, stravaRes.status, allowOrigin);
+    // Log the upstream detail server-side; return a generic message so we don't leak Strava internals.
+    console.error('[strava] token exchange failed', stravaRes.status, data);
+    const msg = (stravaRes.status === 401 || stravaRes.status === 403) ? 'Authorization failed'
+              : (stravaRes.status === 400) ? 'Invalid request'
+              : 'Service unavailable';
+    return json({ error: msg }, stravaRes.status, allowOrigin);
   }
 
   // Return only the fields the frontend needs
@@ -203,9 +273,28 @@ async function handleAi(req, env, allowOrigin) {
     return json({ error: 'AI not configured — set ANTHROPIC_API_KEY secret' }, 503, allowOrigin);
   }
 
+  const raw = await req.text();
+  // Reject oversized prompts before parsing — this proxy spends the owner's Anthropic credits.
+  if (raw.length > AI_MAX_BODY_BYTES) {
+    return json({ error: 'Request too large' }, 413, allowOrigin);
+  }
+
   let body;
-  try { body = await req.json(); }
+  try { body = JSON.parse(raw); }
   catch { return json({ error: 'Invalid JSON body' }, 400, allowOrigin); }
+
+  // Lock down what the browser can ask for: known model, bounded output, real messages.
+  if (typeof body.model !== 'string' || !AI_ALLOWED_MODELS.includes(body.model)) {
+    return json({ error: 'Model not allowed' }, 400, allowOrigin);
+  }
+  if (!Array.isArray(body.messages) || body.messages.length === 0) {
+    return json({ error: 'Missing messages' }, 400, allowOrigin);
+  }
+  if (typeof body.max_tokens !== 'number' || !Number.isFinite(body.max_tokens) || body.max_tokens <= 0) {
+    body.max_tokens = AI_MAX_TOKENS_CAP;
+  } else {
+    body.max_tokens = Math.min(Math.floor(body.max_tokens), AI_MAX_TOKENS_CAP);
+  }
 
   let aiRes;
   try {

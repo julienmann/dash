@@ -100,8 +100,8 @@ body{
       </svg>
     </div>
     <div class="welcome-wordmark">Training Plan</div>
-    <h1 class="welcome-head">Plan your race, then train for it.</h1>
-    <p class="welcome-sub">Choose a ready-made plan, generate one with AI, or build your own, for any distance from a 5K to a full Ironman. Create an account to keep your plan synced across devices, or connect Strava so upcoming sessions adapt to how you're actually training.</p>
+    <h1 class="welcome-head">A training plan that adapts to how you actually train.</h1>
+    <p class="welcome-sub">Pick a ready-made plan, generate one with AI, or build your own, for any distance from a 5K to a full Ironman. Then see your day-by-day schedule and progress to race day. No account needed to start; add one to sync across devices, or connect Strava so upcoming sessions adjust to your real efforts.</p>
 
     <!-- ── Default: three entry options ── -->
     <div class="welcome-actions" id="entry-actions">
@@ -153,6 +153,7 @@ body{
 const STRAVA_CLIENT_ID = '250989';
 const WORKER_URL       = 'https://strava-auth.jmdashboard.workers.dev';
 const SESSION_KEY      = 'jm_session_v1';
+const OAUTH_STATE_KEY  = 'jm_oauth_state';
 
 const entryActions   = document.getElementById('entry-actions');
 const registerForm   = document.getElementById('register-form');
@@ -177,8 +178,11 @@ document.getElementById('login-back').addEventListener('click', () => showPanel(
 
 document.getElementById('connect-btn').addEventListener('click', (e) => {
   e.preventDefault();
+  // CSRF protection: send a random state and stash it so the /dashboard/ callback can verify it.
+  const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
+  try { sessionStorage.setItem(OAUTH_STATE_KEY, state); } catch {}
   const redirectUri = window.location.origin + '/dashboard/';
-  const p = new URLSearchParams({ client_id:STRAVA_CLIENT_ID, response_type:'code', redirect_uri:redirectUri, approval_prompt:'auto', scope:'activity:read_all,read' });
+  const p = new URLSearchParams({ client_id:STRAVA_CLIENT_ID, response_type:'code', redirect_uri:redirectUri, approval_prompt:'auto', scope:'activity:read_all,read', state });
   window.location.href = 'https://www.strava.com/oauth/authorize?' + p;
 });
 
