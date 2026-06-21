@@ -4897,6 +4897,7 @@ async function generateAiPlan() {
   const backBtn  = document.getElementById('aiq-nav-back');
   const errEl    = document.getElementById('ai-builder-error');
   const statusEl = document.getElementById('ai-builder-status');
+  const reviewEl = document.getElementById('aiq-review-grid');
   errEl.classList.add('hidden');
 
   const trainStart = aiqVal('aiq-train-start');
@@ -4917,6 +4918,7 @@ async function generateAiPlan() {
   btn.disabled = true;
   backBtn.disabled = true;
   btn.textContent = 'Generating…';
+  reviewEl.classList.add('hidden');
   statusEl.classList.remove('hidden');
   aiqStartProgress();
 
@@ -4952,6 +4954,7 @@ async function generateAiPlan() {
     backBtn.disabled = false;
     btn.textContent = '✦ Generate plan';
     statusEl.classList.add('hidden');
+    reviewEl.classList.remove('hidden');
   }
 }
 
