@@ -4,178 +4,456 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; connect-src https://www.strava.com https://strava-auth.jmdashboard.workers.dev; font-src https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;">
-<title>Training Plan — plan your race, then train for it</title>
-<meta name="description" content="A Strava-connected training planner for runners (5K–50K) and triathletes (sprint–Ironman). Pick a preset, generate a plan with AI, or build your own.">
+<title>Training Plan: plan your race, then train for it</title>
+<meta name="description" content="A Strava-connected training planner for runners (5K to 50K) and triathletes (sprint to Ironman). Pick a preset, generate a plan with AI, or build your own, then follow it day by day to race day.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
-  --orange:#FC4C02;
-  --orange-strong:#CC4011;
+  --orange:#FC4C02;          /* bright: large display + decoration only */
+  --orange-strong:#CC4011;   /* AA-safe: all small/interactive text + filled buttons */
   --orange-dim:rgba(252,76,2,.1);
   --bg:#F5F5F5;
   --card:#FFFFFF;
   --fg:#242428;
   --mid:#6D6D6D;
   --border:#E8E8E8;
+  --swim:#00B4D8;
+  --bike:#4A90D9;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
   --shadow-md:0 4px 16px rgba(0,0,0,.08);
   --radius:10px;
   --sans:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --maxw:64rem;
 }
 *{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
 html,body{margin:0;padding:0;}
-body{
-  font-family:var(--sans);
-  color:var(--fg);
-  background:var(--bg);
-  min-height:100vh;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:1.5rem;
-}
+body{font-family:var(--sans);color:var(--fg);background:var(--bg);min-height:100vh;line-height:1.5;-webkit-font-smoothing:antialiased;}
 .hidden{display:none!important;}
-.welcome-wrap{width:100%;max-width:30rem;}
-.welcome-card{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:1.25rem;
-  box-shadow:var(--shadow-md);
-  padding:2.5rem 2rem;
-  text-align:center;
-}
-.welcome-mark{margin:0 auto 1.25rem;width:64px;height:64px;}
-.welcome-mark svg{width:100%;height:100%;}
-.welcome-wordmark{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mid);margin-bottom:.6rem;}
-.welcome-head{font-size:1.55rem;font-weight:800;line-height:1.25;margin:0 0 .65rem;}
-.welcome-sub{font-size:.97rem;line-height:1.55;color:var(--mid);margin:0 0 1.6rem;}
-.welcome-actions{display:flex;flex-direction:column;gap:.65rem;}
-.connect-btn,.strava-btn,.account-btn{
-  font-family:inherit;
-  font-size:.95rem;
-  font-weight:700;
-  border-radius:.65rem;
-  padding:.85rem 1.1rem;
-  cursor:pointer;
-  border:none;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:.5rem;
-  text-decoration:none;
-  width:100%;
-}
-.connect-btn{background:var(--orange-strong);color:#fff;}
-.connect-btn:hover{background:#a8330d;}
-.strava-btn,.account-btn{background:var(--card);color:var(--fg);border:1.5px solid var(--border);}
-.strava-btn:hover,.account-btn:hover{border-color:var(--orange-strong);}
-.strava-btn svg{width:18px;height:18px;fill:#FC4C02;}
-.welcome-foot{font-size:.8rem;color:var(--mid);margin:1.1rem 0 0;line-height:1.5;}
-.auth-form{display:flex;flex-direction:column;gap:.7rem;text-align:left;}
+a{color:inherit;}
+:focus-visible{outline:2px solid var(--orange-strong);outline-offset:2px;border-radius:3px;}
+
+/* ── Buttons ───────────────────────────────────────────── */
+.btn{font-family:inherit;font-size:.92rem;font-weight:700;border-radius:.6rem;padding:.7rem 1.15rem;cursor:pointer;border:1.5px solid transparent;display:inline-flex;align-items:center;justify-content:center;gap:.45rem;text-decoration:none;min-height:44px;white-space:nowrap;transition:background .15s,border-color .15s,color .15s;}
+.btn-primary{background:var(--orange-strong);color:#fff;}
+.btn-primary:hover{background:#a8330d;}
+.btn-secondary{background:var(--card);color:var(--fg);border-color:var(--border);}
+.btn-secondary:hover{border-color:var(--fg);}
+.btn-ghost{background:transparent;color:var(--mid);}
+.btn-ghost:hover{color:var(--fg);background:rgba(0,0,0,.04);}
+.btn-lg{font-size:1rem;padding:.85rem 1.5rem;}
+.btn-block{width:100%;}
+
+/* ── Top nav ───────────────────────────────────────────── */
+.nav{position:sticky;top:0;z-index:20;background:rgba(245,245,245,.85);backdrop-filter:saturate(180%) blur(10px);border-bottom:1px solid var(--border);}
+.nav-inner{max-width:var(--maxw);margin:0 auto;padding:.7rem 1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.brand{display:flex;align-items:center;gap:.6rem;font-weight:800;font-size:1.02rem;letter-spacing:-.01em;background:none;border:none;padding:0;cursor:pointer;color:var(--fg);font-family:inherit;}
+.brand svg{width:30px;height:30px;display:block;}
+.nav-actions{display:flex;align-items:center;gap:.5rem;}
+
+/* ── Layout primitives ─────────────────────────────────── */
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 1.5rem;}
+.eyebrow{font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange-strong);}
+section{border-top:1px solid var(--border);}
+section:first-of-type{border-top:none;}
+
+/* ── Hero ──────────────────────────────────────────────── */
+.hero{padding:5rem 0 4.5rem;}
+.hero .eyebrow{margin-bottom:1.1rem;}
+.hero h1{font-size:clamp(2.6rem,6.4vw,4.7rem);font-weight:800;line-height:1.02;letter-spacing:-.035em;margin:0 0 1.3rem;max-width:16ch;}
+.hero h1 em{font-style:normal;color:var(--orange);}
+.hero-sub{font-size:clamp(1.02rem,1.6vw,1.2rem);color:var(--mid);max-width:54ch;margin:0 0 2rem;}
+.hero-actions{display:flex;flex-wrap:wrap;gap:.7rem;align-items:center;}
+.hero-note{font-size:.82rem;color:var(--mid);margin:1.4rem 0 0;}
+
+/* ── Three ways in (editorial numbered rows) ───────────── */
+.ways{padding:4rem 0;}
+.ways-head{margin-bottom:2.5rem;max-width:40ch;}
+.ways-head h2{font-size:clamp(1.7rem,3vw,2.4rem);font-weight:800;letter-spacing:-.025em;margin:.7rem 0 0;line-height:1.1;}
+.way{display:grid;grid-template-columns:5.5rem 1fr;gap:1.5rem;padding:2rem 0;border-top:1px solid var(--border);align-items:baseline;}
+.way:first-child{border-top:none;}
+.way-num{font-size:clamp(2.6rem,5vw,3.6rem);font-weight:800;line-height:.8;color:var(--orange);letter-spacing:-.04em;}
+.way-body h3{font-size:1.3rem;font-weight:700;letter-spacing:-.015em;margin:0 0 .5rem;}
+.way-body p{font-size:1.02rem;color:var(--mid);margin:0;max-width:60ch;}
+
+/* ── Then it trains with you ───────────────────────────── */
+.after{padding:4rem 0;background:var(--card);}
+.after-head{max-width:42ch;margin-bottom:2.5rem;}
+.after-head h2{font-size:clamp(1.7rem,3vw,2.4rem);font-weight:800;letter-spacing:-.025em;margin:.7rem 0 0;line-height:1.1;}
+.after-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2.5rem;}
+.point .point-label{font-size:.72rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--fg);padding-bottom:.7rem;border-bottom:2px solid var(--orange);display:inline-block;margin-bottom:.9rem;}
+.point h3{font-size:1.15rem;font-weight:700;margin:0 0 .45rem;}
+.point p{font-size:.97rem;color:var(--mid);margin:0;}
+
+/* ── Distances band ────────────────────────────────────── */
+.dist{padding:4rem 0;}
+.dist h2{font-size:clamp(1.7rem,3vw,2.4rem);font-weight:800;letter-spacing:-.025em;margin:.7rem 0 1.8rem;line-height:1.1;}
+.dist-rows{display:flex;flex-direction:column;gap:1.4rem;}
+.dist-row{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;}
+.dist-tag{display:inline-flex;align-items:center;gap:.45rem;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--fg);min-width:5.5rem;}
+.dot{width:.65rem;height:.65rem;border-radius:50%;flex:none;}
+.dot-run{background:var(--orange);}
+.dot-tri{background:var(--bike);}
+.dist-items{display:flex;flex-wrap:wrap;gap:.5rem;}
+.chip{font-size:.9rem;font-weight:600;color:var(--fg);background:var(--card);border:1px solid var(--border);border-radius:99px;padding:.4rem .9rem;}
+
+/* ── Closing CTA ───────────────────────────────────────── */
+.cta{padding:5rem 0;background:var(--card);text-align:center;}
+.cta h2{font-size:clamp(2rem,4vw,3rem);font-weight:800;letter-spacing:-.03em;margin:0 0 1.6rem;line-height:1.05;}
+.cta .hero-actions{justify-content:center;}
+
+/* ── Footer ────────────────────────────────────────────── */
+.foot{border-top:1px solid var(--border);padding:2rem 0;}
+.foot-inner{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;font-size:.84rem;color:var(--mid);}
+
+/* ── Auth view ─────────────────────────────────────────── */
+.auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem;}
+.auth-wrap{width:100%;max-width:25rem;}
+.auth-back-home{display:inline-flex;align-items:center;gap:.4rem;font-size:.85rem;font-weight:600;color:var(--mid);background:none;border:none;cursor:pointer;font-family:inherit;padding:.4rem 0;margin-bottom:1rem;min-height:44px;}
+.auth-back-home:hover{color:var(--fg);}
+.auth-card{background:var(--card);border:1px solid var(--border);border-radius:1.1rem;box-shadow:var(--shadow-md);padding:2.2rem 1.9rem;}
+.auth-mark{width:52px;height:52px;margin-bottom:1.1rem;}
+.auth-mark svg{width:100%;height:100%;display:block;}
+.auth-title{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin:0 0 .4rem;}
+.auth-lead{font-size:.92rem;color:var(--mid);margin:0 0 1.5rem;line-height:1.5;}
+.auth-actions{display:flex;flex-direction:column;gap:.6rem;}
+.strava-btn{font-family:inherit;font-size:.92rem;font-weight:700;border-radius:.6rem;padding:.75rem 1.1rem;cursor:pointer;border:1.5px solid var(--border);background:var(--card);color:var(--fg);display:flex;align-items:center;justify-content:center;gap:.5rem;text-decoration:none;width:100%;min-height:44px;transition:border-color .15s;}
+.strava-btn:hover{border-color:var(--orange-strong);}
+.strava-btn svg{width:18px;height:18px;fill:var(--orange);}
+.divider{display:flex;align-items:center;gap:.8rem;margin:1.2rem 0;color:var(--mid);font-size:.74rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border);}
+.auth-form{display:flex;flex-direction:column;gap:.7rem;}
 .auth-field{display:flex;flex-direction:column;gap:.3rem;}
 .auth-label{font-size:.76rem;font-weight:600;color:var(--fg);}
-.auth-input{font-family:inherit;font-size:.92rem;padding:.65rem .8rem;border:1.5px solid var(--border);border-radius:.55rem;outline:none;}
-.auth-input:focus{border-color:var(--orange);}
-.auth-error{font-size:.8rem;color:#C0392B;font-weight:500;min-height:1.1em;text-align:left;}
-.auth-back{font-size:.82rem;color:var(--mid);font-weight:600;text-align:center;padding:.3rem 0;cursor:pointer;background:none;border:none;}
-.auth-back:hover{color:var(--fg);}
+.auth-input{font-family:inherit;font-size:.92rem;padding:.7rem .8rem;border:1.5px solid var(--border);border-radius:.55rem;min-height:44px;transition:border-color .15s;}
+.auth-input:focus{border-color:var(--orange-strong);}
+.auth-error{font-size:.8rem;color:#C0392B;font-weight:500;min-height:1.1em;}
+.auth-switch{font-size:.86rem;color:var(--mid);text-align:center;margin:1.3rem 0 0;}
+.auth-link{color:var(--orange-strong);font-weight:700;background:none;border:none;cursor:pointer;font-family:inherit;font-size:inherit;padding:0;}
+.auth-link:hover{text-decoration:underline;}
+.auth-foot{font-size:.82rem;color:var(--mid);margin:1.1rem 0 0;line-height:1.5;text-align:center;}
+
+/* ── Restrained page-load reveal ───────────────────────── */
+@keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+.reveal{animation:rise .55s cubic-bezier(.22,1,.36,1) both;}
+.reveal-1{animation-delay:.04s;}
+.reveal-2{animation-delay:.12s;}
+.reveal-3{animation-delay:.2s;}
+
+/* ── Responsive ────────────────────────────────────────── */
+@media(max-width:640px){
+  .hero{padding:3.5rem 0 3rem;}
+  .way{grid-template-columns:1fr;gap:.4rem;}
+  .way-num{font-size:2.4rem;}
+  .after-grid{grid-template-columns:1fr;gap:2rem;}
+  .nav-actions .btn-ghost{display:none;} /* keep one primary action; log-in still reachable from hero/CTA */
+}
+
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto;}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}
+}
 </style>
 </head>
 <body>
-<div class="welcome-wrap">
-  <div class="welcome-card">
-    <div class="welcome-mark" aria-hidden="true">
-      <svg viewBox="0 0 64 64">
-        <rect width="64" height="64" rx="15" fill="#1A1A1D"/>
-        <rect x="16.8" y="13" width="3.5" height="38" rx="1.6" fill="#fff"/>
-        <rect x="20.5" y="14" width="26" height="19.5" fill="#3A3A40"/>
-        <g fill="#FC4C02">
-          <rect x="20.5" y="14" width="6.5" height="6.5"/>
-          <rect x="33.5" y="14" width="6.5" height="6.5"/>
-          <rect x="27" y="20.5" width="6.5" height="6.5"/>
-          <rect x="40" y="20.5" width="6.5" height="6.5"/>
-          <rect x="20.5" y="27" width="6.5" height="6.5"/>
-          <rect x="33.5" y="27" width="6.5" height="6.5"/>
-        </g>
-      </svg>
+
+<!-- ════════════════ LANDING VIEW ════════════════ -->
+<div id="view-landing">
+
+  <header class="nav">
+    <div class="nav-inner">
+      <button class="brand" type="button" id="brand-home" aria-label="Training Plan, home">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" rx="15" fill="#1A1A1D"/>
+          <rect x="16.8" y="13" width="3.5" height="38" rx="1.6" fill="#fff"/>
+          <rect x="20.5" y="14" width="26" height="19.5" fill="#3A3A40"/>
+          <g fill="#FC4C02">
+            <rect x="20.5" y="14" width="6.5" height="6.5"/>
+            <rect x="33.5" y="14" width="6.5" height="6.5"/>
+            <rect x="27" y="20.5" width="6.5" height="6.5"/>
+            <rect x="40" y="20.5" width="6.5" height="6.5"/>
+            <rect x="20.5" y="27" width="6.5" height="6.5"/>
+            <rect x="33.5" y="27" width="6.5" height="6.5"/>
+          </g>
+        </svg>
+        <span>Training Plan</span>
+      </button>
+      <nav class="nav-actions">
+        <button class="btn btn-ghost" type="button" data-go-auth="login">Log in</button>
+        <button class="btn btn-primary" type="button" data-go-auth="register">Get started</button>
+      </nav>
     </div>
-    <div class="welcome-wordmark">Training Plan</div>
-    <h1 class="welcome-head">A training plan that adapts to how you actually train.</h1>
-    <p class="welcome-sub">Pick a ready-made plan, generate one with AI, or build your own, for any distance from a 5K to a full Ironman. Then see your day-by-day schedule and progress to race day. No account needed to start; add one to sync across devices, or connect Strava so upcoming sessions adjust to your real efforts.</p>
+  </header>
 
-    <!-- ── Default: three entry options ── -->
-    <div class="welcome-actions" id="entry-actions">
-      <button class="connect-btn" id="show-register-btn" type="button">Create account →</button>
-      <button class="account-btn" id="show-login-btn" type="button">Log in</button>
-      <a class="strava-btn" id="connect-btn" href="#">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-        Connect with Strava
-      </a>
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="wrap">
+        <p class="eyebrow reveal reveal-1">For runners and triathletes</p>
+        <h1 class="reveal reveal-2">Your race has a date. <em>Give it a plan.</em></h1>
+        <p class="hero-sub reveal reveal-3">A Strava-connected training planner that lives with you from sign-up to start line, for any distance from a 5K to a full Ironman. Pick a plan, generate one with AI, or build your own, then follow it day by day.</p>
+        <div class="hero-actions reveal reveal-3">
+          <button class="btn btn-primary btn-lg" type="button" data-go-auth="register">Get started</button>
+          <button class="btn btn-secondary btn-lg" type="button" data-go-auth="login">Log in</button>
+        </div>
+        <p class="hero-note reveal reveal-3">No account needed to start. Add one to sync across devices.</p>
+      </div>
+    </section>
+
+    <!-- Three ways in -->
+    <section class="ways">
+      <div class="wrap">
+        <div class="ways-head">
+          <p class="eyebrow">Three ways in</p>
+          <h2>Start the way that suits you.</h2>
+        </div>
+
+        <div class="way">
+          <div class="way-num">01</div>
+          <div class="way-body">
+            <h3>Pick a ready-made plan</h3>
+            <p>Periodized presets for the common distances, 5K through full Ironman. Choose one, set your race date, and the schedule fills in from today.</p>
+          </div>
+        </div>
+
+        <div class="way">
+          <div class="way-num">02</div>
+          <div class="way-body">
+            <h3>Generate one with AI</h3>
+            <p>Answer a short questionnaire and get a custom periodized plan built around your race, your experience, and the days you can actually train.</p>
+          </div>
+        </div>
+
+        <div class="way">
+          <div class="way-num">03</div>
+          <div class="way-body">
+            <h3>Build your own</h3>
+            <p>Lay out phases and weekly templates by hand for full control of every session, with the same engine checking the plan holds together to race day.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Then it trains with you -->
+    <section class="after">
+      <div class="wrap">
+        <div class="after-head">
+          <p class="eyebrow">After you have a plan</p>
+          <h2>Then it trains with you.</h2>
+        </div>
+        <div class="after-grid">
+          <div class="point">
+            <span class="point-label">Today first</span>
+            <h3>The session in front of you</h3>
+            <p>The schedule leads with today, then the week, then the road to race day. You open it, see what to do, and go.</p>
+          </div>
+          <div class="point">
+            <span class="point-label">Honest signals</span>
+            <h3>Real progress, no spin</h3>
+            <p>Phase and week tracking show exactly where you stand against race day. Real paces and adherence, never a vanity metric.</p>
+          </div>
+          <div class="point">
+            <span class="point-label">Strava-aware</span>
+            <h3>Adapts to real efforts</h3>
+            <p>Connect Strava and upcoming sessions adjust to what you actually did, including the workouts you missed.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Distances -->
+    <section class="dist">
+      <div class="wrap">
+        <p class="eyebrow">One plan, any distance</p>
+        <h2>From a first 5K to a full Ironman.</h2>
+        <div class="dist-rows">
+          <div class="dist-row">
+            <span class="dist-tag"><span class="dot dot-run" aria-hidden="true"></span>Run</span>
+            <div class="dist-items">
+              <span class="chip">5K</span>
+              <span class="chip">10K</span>
+              <span class="chip">Half marathon</span>
+              <span class="chip">Marathon</span>
+              <span class="chip">50K ultra</span>
+            </div>
+          </div>
+          <div class="dist-row">
+            <span class="dist-tag"><span class="dot dot-tri" aria-hidden="true"></span>Tri</span>
+            <div class="dist-items">
+              <span class="chip">Sprint</span>
+              <span class="chip">Olympic</span>
+              <span class="chip">70.3 / Half</span>
+              <span class="chip">Full Ironman</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Closing CTA -->
+    <section class="cta">
+      <div class="wrap">
+        <h2>Ready when you are.</h2>
+        <div class="hero-actions">
+          <button class="btn btn-primary btn-lg" type="button" data-go-auth="register">Get started</button>
+          <button class="btn btn-secondary btn-lg" type="button" data-go-auth="login">Log in</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-inner">
+      <span>Training Plan</span>
+      <span>Plan your race, then train for it.</span>
     </div>
+  </footer>
+</div>
 
-    <!-- ── Create account form ── -->
-    <form class="auth-form hidden" id="register-form">
-      <div class="auth-field">
-        <label class="auth-label" for="register-email">Email</label>
-        <input class="auth-input" type="email" id="register-email" autocomplete="email" required>
+<!-- ════════════════ AUTH VIEW ════════════════ -->
+<div id="view-auth" class="auth-screen hidden">
+  <div class="auth-wrap">
+    <button class="auth-back-home" type="button" id="auth-back-home">← Back to home</button>
+    <div class="auth-card">
+      <div class="auth-mark" aria-hidden="true">
+        <svg viewBox="0 0 64 64">
+          <rect width="64" height="64" rx="15" fill="#1A1A1D"/>
+          <rect x="16.8" y="13" width="3.5" height="38" rx="1.6" fill="#fff"/>
+          <rect x="20.5" y="14" width="26" height="19.5" fill="#3A3A40"/>
+          <g fill="#FC4C02">
+            <rect x="20.5" y="14" width="6.5" height="6.5"/>
+            <rect x="33.5" y="14" width="6.5" height="6.5"/>
+            <rect x="27" y="20.5" width="6.5" height="6.5"/>
+            <rect x="40" y="20.5" width="6.5" height="6.5"/>
+            <rect x="20.5" y="27" width="6.5" height="6.5"/>
+            <rect x="33.5" y="27" width="6.5" height="6.5"/>
+          </g>
+        </svg>
       </div>
-      <div class="auth-field">
-        <label class="auth-label" for="register-password">Password</label>
-        <input class="auth-input" type="password" id="register-password" autocomplete="new-password" minlength="8" required>
-      </div>
-      <div class="auth-error" id="register-error" aria-live="polite"></div>
-      <button class="connect-btn" type="submit">Create account →</button>
-      <button class="auth-back" type="button" id="register-back">← Back</button>
-    </form>
+      <h1 class="auth-title" id="auth-title">Create your account</h1>
+      <p class="auth-lead" id="auth-lead">Keep your plan synced across every device.</p>
 
-    <!-- ── Log in form ── -->
-    <form class="auth-form hidden" id="login-form">
-      <div class="auth-field">
-        <label class="auth-label" for="login-email">Email</label>
-        <input class="auth-input" type="email" id="login-email" autocomplete="email" required>
-      </div>
-      <div class="auth-field">
-        <label class="auth-label" for="login-password">Password</label>
-        <input class="auth-input" type="password" id="login-password" autocomplete="current-password" required>
-      </div>
-      <div class="auth-error" id="login-error" aria-live="polite"></div>
-      <button class="connect-btn" type="submit">Log in →</button>
-      <button class="auth-back" type="button" id="login-back">← Back</button>
-    </form>
+      <!-- Create account -->
+      <form class="auth-form" id="register-form">
+        <div class="auth-field">
+          <label class="auth-label" for="register-email">Email</label>
+          <input class="auth-input" type="email" id="register-email" autocomplete="email" required>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label" for="register-password">Password</label>
+          <input class="auth-input" type="password" id="register-password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <div class="auth-error" id="register-error" aria-live="polite"></div>
+        <button class="btn btn-primary btn-block" type="submit">Create account →</button>
+      </form>
 
-    <p class="welcome-foot" id="welcome-foot">An account is optional. You can also just start planning without signing up — your plan lives in this browser instead of syncing across devices.</p>
-    <div class="welcome-actions hidden" id="skip-actions">
-      <a class="strava-btn" href="/dashboard/">Skip — start planning in this browser →</a>
+      <!-- Log in -->
+      <form class="auth-form hidden" id="login-form">
+        <div class="auth-field">
+          <label class="auth-label" for="login-email">Email</label>
+          <input class="auth-input" type="email" id="login-email" autocomplete="email" required>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label" for="login-password">Password</label>
+          <input class="auth-input" type="password" id="login-password" autocomplete="current-password" required>
+        </div>
+        <div class="auth-error" id="login-error" aria-live="polite"></div>
+        <button class="btn btn-primary btn-block" type="submit">Log in →</button>
+      </form>
+
+      <p class="auth-switch">
+        <span id="switch-text">Already have an account?</span>
+        <button class="auth-link" type="button" id="auth-toggle">Log in</button>
+      </p>
+
+      <div class="divider">or</div>
+
+      <div class="auth-actions">
+        <a class="strava-btn" id="connect-btn" href="#">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+          Connect with Strava
+        </a>
+      </div>
+
+      <p class="auth-foot">An account is optional. You can also <a class="auth-link" href="/dashboard/">start planning in this browser</a>, your plan lives here instead of syncing across devices.</p>
     </div>
   </div>
 </div>
+
 <script>
 const STRAVA_CLIENT_ID = '250989';
 const WORKER_URL       = 'https://strava-auth.jmdashboard.workers.dev';
 const SESSION_KEY      = 'jm_session_v1';
 const OAUTH_STATE_KEY  = 'jm_oauth_state';
 
-const entryActions   = document.getElementById('entry-actions');
-const registerForm   = document.getElementById('register-form');
-const loginForm      = document.getElementById('login-form');
-const welcomeFoot     = document.getElementById('welcome-foot');
-const skipActions     = document.getElementById('skip-actions');
+const viewLanding = document.getElementById('view-landing');
+const viewAuth    = document.getElementById('view-auth');
+const registerForm = document.getElementById('register-form');
+const loginForm    = document.getElementById('login-form');
+const authTitle   = document.getElementById('auth-title');
+const authLead    = document.getElementById('auth-lead');
+const switchText  = document.getElementById('switch-text');
+const authToggle  = document.getElementById('auth-toggle');
 
-function showPanel(panel) {
-  entryActions.classList.add('hidden');
-  registerForm.classList.add('hidden');
-  loginForm.classList.add('hidden');
-  welcomeFoot.classList.add('hidden');
-  skipActions.classList.add('hidden');
-  if (panel) panel.classList.remove('hidden');
-  else { entryActions.classList.remove('hidden'); welcomeFoot.classList.remove('hidden'); }
+const AUTH_COPY = {
+  register: { title:'Create your account', lead:'Keep your plan synced across every device.', switch:'Already have an account?', toggle:'Log in' },
+  login:    { title:'Welcome back',         lead:'Log in to pick up your plan where you left off.', switch:'New here?',               toggle:'Create an account' }
+};
+
+let authMode = 'register';
+
+function setAuthMode(mode) {
+  authMode = (mode === 'login') ? 'login' : 'register';
+  const c = AUTH_COPY[authMode];
+  authTitle.textContent = c.title;
+  authLead.textContent  = c.lead;
+  switchText.textContent = c.switch;
+  authToggle.textContent = c.toggle;
+  registerForm.classList.toggle('hidden', authMode !== 'register');
+  loginForm.classList.toggle('hidden', authMode !== 'login');
 }
 
-document.getElementById('show-register-btn').addEventListener('click', () => { showPanel(registerForm); skipActions.classList.remove('hidden'); });
-document.getElementById('show-login-btn').addEventListener('click', () => { showPanel(loginForm); skipActions.classList.remove('hidden'); });
-document.getElementById('register-back').addEventListener('click', () => showPanel(null));
-document.getElementById('login-back').addEventListener('click', () => showPanel(null));
+function showAuth(mode) {
+  setAuthMode(mode);
+  viewLanding.classList.add('hidden');
+  viewAuth.classList.remove('hidden');
+  window.scrollTo(0, 0);
+  const focusEl = document.getElementById(authMode === 'login' ? 'login-email' : 'register-email');
+  if (focusEl) { try { focusEl.focus(); } catch {} }
+}
 
+function showLanding() {
+  viewAuth.classList.add('hidden');
+  viewLanding.classList.remove('hidden');
+}
+
+// ── Hash routing (#login / #get-started restore the auth view on refresh) ──
+function routeFromHash() {
+  const h = (location.hash || '').toLowerCase();
+  if (h === '#login') showAuth('login');
+  else if (h === '#get-started' || h === '#signup' || h === '#register') showAuth('register');
+  else showLanding();
+}
+
+document.querySelectorAll('[data-go-auth]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const mode = btn.getAttribute('data-go-auth');
+    location.hash = (mode === 'login') ? 'login' : 'get-started';
+  });
+});
+document.getElementById('brand-home').addEventListener('click', () => {
+  if (location.hash) location.hash = ''; else showLanding();
+});
+document.getElementById('auth-back-home').addEventListener('click', () => {
+  if (location.hash) location.hash = ''; else showLanding();
+});
+authToggle.addEventListener('click', () => {
+  location.hash = (authMode === 'register') ? 'login' : 'get-started';
+});
+window.addEventListener('hashchange', routeFromHash);
+
+// ── Strava OAuth (CSRF state preserved) ──
 document.getElementById('connect-btn').addEventListener('click', (e) => {
   e.preventDefault();
   // CSRF protection: send a random state and stash it so the /dashboard/ callback can verify it.
@@ -186,6 +464,7 @@ document.getElementById('connect-btn').addEventListener('click', (e) => {
   window.location.href = 'https://www.strava.com/oauth/authorize?' + p;
 });
 
+// ── Email / password auth ──
 async function submitAuth(path, email, password, errorEl) {
   errorEl.textContent = '';
   try {
@@ -208,6 +487,9 @@ loginForm.addEventListener('submit', (e) => {
   e.preventDefault();
   submitAuth('/auth/login', document.getElementById('login-email').value.trim(), document.getElementById('login-password').value, document.getElementById('login-error'));
 });
+
+// Initial route (supports landing on /#login directly).
+routeFromHash();
 </script>
 </body>
 </html>
