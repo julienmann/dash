@@ -1204,7 +1204,7 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 <!-- ── FOOTER ── -->
 <footer>
   <div class="footer-inner">
-    <span class="footer-copy">© <span id="footer-year"></span> Julien Mann</span>
+    <span class="footer-copy">© <span id="footer-year"></span> Julien Mann · <span id="footer-version"></span></span>
     <ul class="footer-links">
       <li><a href="https://www.strava.com" target="_blank" rel="noopener">strava.com</a></li>
       <li><a href="../">← julienmann.ca</a></li>
@@ -1213,6 +1213,10 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 </footer>
 
 <script>
+// Bump on every deploy-worthy change — shown in the footer so it's obvious
+// which build is live (e.g. after a cache or CDN propagation lag).
+const APP_VERSION = 'v1.1.0';
+
 // ════════════════════════════════════════════
 //  TRAINING PLAN
 // ════════════════════════════════════════════
@@ -5162,6 +5166,7 @@ document.getElementById('cal-grid').addEventListener('click', e => {
 });
 
 document.getElementById('footer-year').textContent = new Date().getFullYear();
+document.getElementById('footer-version').textContent = APP_VERSION;
 
 // ── Account UI ───────────────────────────────────────────────────
 function renderAccountUI() {
