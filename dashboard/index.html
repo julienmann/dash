@@ -687,6 +687,19 @@ footer{border-top:1px solid var(--border);background:var(--card);}
   *,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}
 }
 </style>
+<script>
+// Auth gate: require an account session or a Strava connection before showing the dashboard.
+// Keys mirror SESSION_KEY ('jm_session_v1') and STORAGE_KEY ('jm_strava_v1') in the main script.
+(function () {
+  try {
+    var p = new URLSearchParams(window.location.search);
+    if (p.has('code') || p.has('error')) return;   // mid OAuth callback, token not saved yet
+    var hasSession = !!localStorage.getItem('jm_session_v1');
+    var hasStrava  = !!localStorage.getItem('jm_strava_v1');
+    if (!hasSession && !hasStrava) window.location.replace('/');
+  } catch (e) {}
+})();
+</script>
 </head>
 <body>
 <a href="#training" class="skip-link">Skip to content</a>
