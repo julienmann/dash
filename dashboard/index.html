@@ -57,6 +57,30 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .topnav-race{font-size:.72rem;font-weight:700;color:var(--orange-strong);letter-spacing:.015em;}
 .topnav-right{display:flex;align-items:center;gap:.75rem;flex-shrink:0;}
 .topnav-alltime{font-size:.7rem;color:var(--mid);white-space:nowrap;}
+.account-wrap{position:relative;display:flex;}
+.account-icon-btn{
+  width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  border:1.5px solid var(--border);background:var(--card);color:var(--mid);cursor:pointer;
+  transition:border-color .15s,color .15s;padding:0;
+}
+.account-icon-btn:hover,.account-icon-btn.open{border-color:var(--fg);color:var(--fg);}
+.account-icon-btn svg{width:15px;height:15px;}
+.account-dropdown{
+  position:absolute;top:calc(100% + 8px);right:0;z-index:200;
+  background:var(--card);border:1.5px solid var(--border);border-radius:10px;
+  padding:.9rem 1rem;min-width:220px;box-shadow:0 6px 20px rgba(0,0,0,.13);display:none;
+}
+.account-dropdown.open{display:block;}
+.account-dropdown-label{font-size:.64rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--mid);margin-bottom:.5rem;}
+.account-dropdown-email{font-size:.83rem;font-weight:700;color:var(--fg);word-break:break-all;margin-bottom:.2rem;}
+.account-dropdown-meta{font-size:.7rem;color:var(--mid);margin-bottom:.8rem;}
+.account-dropdown-action{
+  display:block;width:100%;text-align:left;font-size:.78rem;font-weight:600;color:var(--mid);
+  padding:.4rem 0;background:none;border:none;cursor:pointer;text-decoration:none;
+}
+.account-dropdown-action:hover{color:var(--fg);}
+.account-dropdown-action.danger{color:var(--orange-strong);}
+.account-dropdown-action.danger:hover{color:#a8330d;}
 
 /* ── PAGE ── */
 .page{max-width:1100px;margin:0 auto;padding:0 2rem;}
@@ -646,9 +670,17 @@ footer{border-top:1px solid var(--border);background:var(--card);}
     <div class="topnav-right">
       <button class="topnav-link" id="edit-plan-btn" type="button">Edit Plan</button>
       <button class="topnav-link hidden" id="nav-connect" type="button">Connect Strava</button>
-      <span class="topnav-alltime hidden" id="topnav-account"></span>
       <span class="topnav-alltime hidden" id="topnav-alltime"></span>
       <span class="topnav-race" id="nav-race"></span>
+      <div class="account-wrap">
+        <button class="account-icon-btn" id="account-icon-btn" type="button" aria-label="Account details" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5"/>
+            <path d="M4.5 19.5c1.5-3.5 4.5-5.5 7.5-5.5s6 2 7.5 5.5"/>
+          </svg>
+        </button>
+        <div class="account-dropdown" id="account-dropdown"></div>
+      </div>
     </div>
   </div>
 </nav>
@@ -4620,14 +4652,47 @@ document.getElementById('footer-year').textContent = new Date().getFullYear();
 
 // ── Account UI ───────────────────────────────────────────────────
 function renderAccountUI() {
-  const session = getSession();
-  const el = document.getElementById('topnav-account');
-  if (!session) { el.classList.add('hidden'); el.innerHTML = ''; return; }
-  el.classList.remove('hidden');
-  el.innerHTML = `${esc(session.email)} · <button class="topnav-link" id="logout-btn" type="button" style="padding:0;">Log out</button>`;
-  document.getElementById('logout-btn').addEventListener('click', () => {
-    clearSession();
-    window.location.href = '/';
+  const btn      = document.getElementById('account-icon-btn');
+  const dropdown = document.getElementById('account-dropdown');
+  const session  = getSession();
+
+  if (session) {
+    dropdown.innerHTML = `
+      <div class="account-dropdown-label">Account</div>
+      <div class="account-dropdown-email">${esc(session.email)}</div>
+      <div class="account-dropdown-meta" id="account-meta">Synced across devices</div>
+      <button class="account-dropdown-action danger" id="logout-btn" type="button">Log out</button>
+    `;
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      clearSession();
+      window.location.href = '/';
+    });
+    fetch(WORKER_URL + '/account', { headers: { 'Authorization': 'Bearer ' + session.token } })
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        const metaEl = document.getElementById('account-meta');
+        if (metaEl && data?.createdAt) {
+          const d = new Date(data.createdAt);
+          metaEl.textContent = `Member since ${d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`;
+        }
+      })
+      .catch(() => {});
+  } else {
+    dropdown.innerHTML = `
+      <div class="account-dropdown-label">Account</div>
+      <div class="account-dropdown-meta">Not signed in — your plan is saved in this browser only.</div>
+      <a class="account-dropdown-action" href="/">Create account or log in →</a>
+    `;
+  }
+
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const isOpen = dropdown.classList.toggle('open');
+    btn.classList.toggle('open', isOpen);
+  });
+  document.addEventListener('click', () => {
+    dropdown.classList.remove('open');
+    btn.classList.remove('open');
   });
 }
 renderAccountUI();

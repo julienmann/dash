@@ -45,6 +45,7 @@ export default {
     if (url.pathname === '/auth/login'    && req.method === 'POST') return handleLogin(req, env, allowOrigin);
     if (url.pathname === '/plan'          && req.method === 'GET')  return handleGetPlan(req, env, allowOrigin);
     if (url.pathname === '/plan'          && req.method === 'PUT')  return handlePutPlan(req, env, allowOrigin);
+    if (url.pathname === '/account'       && req.method === 'GET')  return handleGetAccount(req, env, allowOrigin);
 
     if (url.pathname === '/ai' && req.method === 'POST') return handleAi(req, env, allowOrigin);
 
@@ -103,6 +104,18 @@ async function handleLogin(req, env, allowOrigin) {
 
   const token = await signSession(env, user.id);
   return json({ token, email }, 200, allowOrigin);
+}
+
+// ── Account details ────────────────────────────────────────────────
+
+async function handleGetAccount(req, env, allowOrigin) {
+  if (!env.DB) return json({ error: 'Accounts not configured — bind a D1 database as DB' }, 503, allowOrigin);
+  const userId = await requireSession(req, env);
+  if (!userId) return json({ error: 'Not authenticated' }, 401, allowOrigin);
+
+  const user = await env.DB.prepare('SELECT email, created_at FROM users WHERE id = ?').bind(userId).first();
+  if (!user) return json({ error: 'Account not found' }, 404, allowOrigin);
+  return json({ email: user.email, createdAt: user.created_at }, 200, allowOrigin);
 }
 
 // ── Plan sync ────────────────────────────────────────────────────
