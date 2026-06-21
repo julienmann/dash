@@ -3167,8 +3167,8 @@ async function stravaInit() {
     catch (e) { clearCfg(); showStravaSetup(); document.getElementById('setup-error').textContent = e.message; return; }
   }
 
-  if (!cfg) { showStravaSetup(); return; }
-  if (!cfg.access_token) { startOAuth(); return; }
+  if (!cfg) { showPlannerOnly(); return; }
+  if (!cfg.access_token) { showPlannerOnly(); return; }
   showStravaLoading();
 
   try { cfg = await ensureFreshToken(cfg); }
