@@ -21,3 +21,6 @@ database_id = "0fc4630f-5673-4c87-9c65-7a7146984b19"
 #   wrangler secret put STRAVA_CLIENT_SECRET
 #   wrangler secret put ANTHROPIC_API_KEY
 #   wrangler secret put SESSION_SECRET   (any long random string, e.g. `openssl rand -base64 32`)
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "c502b46837494b3fa0a733a1624f486a"
