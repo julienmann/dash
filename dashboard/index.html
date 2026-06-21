@@ -288,6 +288,16 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .ai-question-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--amber);}
 .ai-question-text{font-size:.8rem;color:var(--fg);line-height:1.6;}
 .ai-panel-loading{display:flex;align-items:center;gap:.75rem;padding:1rem 1.25rem;font-size:.76rem;font-weight:600;color:var(--mid);}
+.ai-builder-status{padding:1rem 1.25rem;}
+.aiq-progress-list{display:flex;flex-direction:column;gap:.55rem;}
+.aiq-progress-item{display:flex;align-items:center;gap:.6rem;font-size:.8rem;font-weight:600;color:var(--border);transition:color .25s;}
+.aiq-progress-item.is-active{color:var(--fg);}
+.aiq-progress-item.is-done{color:var(--mid);}
+.aiq-progress-dot{width:1.1rem;height:1.1rem;border-radius:50%;border:1.5px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.6rem;transition:all .2s;}
+.aiq-progress-item.is-active .aiq-progress-dot{border-color:var(--amber);}
+.aiq-progress-item.is-active .aiq-progress-dot::after{content:'';width:.5rem;height:.5rem;border-radius:50%;background:var(--amber);animation:aiq-pulse 1s ease-in-out infinite alternate;}
+.aiq-progress-item.is-done .aiq-progress-dot{border-color:var(--amber);background:var(--amber);color:#fff;}
+@keyframes aiq-pulse{0%{opacity:.4;transform:scale(.7);}100%{opacity:1;transform:scale(1);}}
 .ai-loading-bar-wrap{width:80px;height:3px;background:var(--border);border-radius:99px;overflow:hidden;}
 .ai-loading-bar{height:100%;width:40%;background:var(--amber);border-radius:99px;animation:loadbar 1s ease-in-out infinite alternate;}
 .ai-panel-error{padding:1rem 1.25rem;font-size:.76rem;color:#D93025;font-weight:500;}
@@ -369,12 +379,31 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .strava-btn svg{width:15px;height:15px;fill:var(--orange);}
 .welcome-foot{font-size:.74rem;color:var(--mid);line-height:1.6;margin-top:1.15rem;padding-top:1.15rem;border-top:1px solid var(--border);}
 
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+
 /* ── STRAVA INLINE LOADING ── */
 .strava-loading-wrap{padding:2rem 0 3.5rem;display:flex;align-items:center;gap:1rem;}
 .loading-label{font-size:.76rem;font-weight:600;color:var(--mid);letter-spacing:.02em;}
 .loading-bar-wrap{width:130px;height:3px;background:var(--border);border-radius:99px;overflow:hidden;}
 .loading-bar{height:100%;width:40%;background:var(--orange);border-radius:99px;animation:loadbar 1s ease-in-out infinite alternate;}
 @keyframes loadbar{0%{transform:translateX(-100%);}100%{transform:translateX(350%);}}
+
+/* ── SKELETON LOADING (Strava fetch) ── */
+.skel-wrap{padding-top:1.5rem;padding-bottom:1.25rem;}
+.skel-pulse{background:linear-gradient(90deg,var(--border) 25%,rgba(0,0,0,.04) 37%,var(--border) 63%);background-size:400% 100%;border-radius:6px;animation:skel-shimmer 1.4s ease-in-out infinite;}
+@keyframes skel-shimmer{0%{background-position:100% 50%;}100%{background-position:0 50%;}}
+.skel-period-bar{display:flex;align-items:center;justify-content:space-between;padding:.75rem 0 .5rem;}
+.skel-h{height:1.1rem;width:120px;}
+.skel-seg{height:1.8rem;width:160px;border-radius:99px;}
+.skel-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem;margin:.75rem 0;}
+.skel-stat-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:1rem 1.1rem;display:flex;flex-direction:column;gap:.5rem;}
+.skel-stat-num{height:1.4rem;width:60%;}
+.skel-stat-label{height:.7rem;width:80%;}
+.skel-mid-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:.85rem;}
+.skel-chart-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.1rem 1.25rem;display:flex;flex-direction:column;gap:.9rem;}
+.skel-chart-title{height:.85rem;width:45%;}
+.skel-chart-body{height:160px;width:100%;border-radius:8px;}
+@media (max-width:760px){.skel-stat-grid{grid-template-columns:repeat(2,1fr);}.skel-mid-grid{grid-template-columns:1fr;}}
 
 /* ══════════════════════════════════════════
    ACTIVITIES SECTION
@@ -780,9 +809,22 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 
 <!-- ── STRAVA: loading ── -->
 <div id="strava-loading" class="page hidden">
-  <div class="strava-loading-wrap">
-    <div class="loading-label">Loading activities…</div>
-    <div class="loading-bar-wrap"><div class="loading-bar"></div></div>
+  <div class="skel-wrap" role="status" aria-live="polite">
+    <span class="sr-only">Loading activities…</span>
+    <div class="skel-period-bar">
+      <div class="skel-pulse skel-h"></div>
+      <div class="skel-pulse skel-seg"></div>
+    </div>
+    <div class="skel-stat-grid">
+      <div class="skel-stat-card"><div class="skel-pulse skel-stat-num"></div><div class="skel-pulse skel-stat-label"></div></div>
+      <div class="skel-stat-card"><div class="skel-pulse skel-stat-num"></div><div class="skel-pulse skel-stat-label"></div></div>
+      <div class="skel-stat-card"><div class="skel-pulse skel-stat-num"></div><div class="skel-pulse skel-stat-label"></div></div>
+      <div class="skel-stat-card"><div class="skel-pulse skel-stat-num"></div><div class="skel-pulse skel-stat-label"></div></div>
+    </div>
+    <div class="skel-mid-grid">
+      <div class="skel-chart-card"><div class="skel-pulse skel-chart-title"></div><div class="skel-pulse skel-chart-body"></div></div>
+      <div class="skel-chart-card"><div class="skel-pulse skel-chart-title"></div><div class="skel-pulse skel-chart-body"></div></div>
+    </div>
   </div>
 </div>
 
@@ -1138,9 +1180,8 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       <div class="aiq-step-title">Ready to build your plan</div>
       <p class="aiq-step-sub">Here's what we'll hand to the coach. Go back to change anything, or generate the plan now.</p>
       <div class="aiq-review-grid" id="aiq-review-grid"></div>
-      <div id="ai-builder-status" class="ai-panel-loading hidden" role="status" aria-live="polite">
-        <em class="ai-panel-icon">✦</em> Designing your plan…
-        <div class="ai-loading-bar-wrap"><div class="ai-loading-bar"></div></div>
+      <div id="ai-builder-status" class="ai-builder-status hidden" role="status" aria-live="polite">
+        <ul class="aiq-progress-list" id="aiq-progress-list"></ul>
       </div>
     </div>
 
@@ -3474,9 +3515,15 @@ function renderFitnessChart() {
       const projNow = proj[todayIdx], actNow = act[act.length - 1];
       const ratio = projNow > 0 ? actNow / projNow : 1;
       let msg;
-      if (ratio >= 1.05)      msg = '<strong style="color:var(--orange-strong)">Ahead of plan</strong> — your training load is running higher than projected. Upcoming sessions may be nudged up.';
-      else if (ratio <= 0.92) msg = '<strong style="color:var(--orange-strong)">Behind plan</strong> — actual load is below projection. The plan will ease upcoming sessions to help you catch up safely.';
-      else                    msg = '<strong>On track</strong> — your actual fitness is tracking the projected build closely.';
+      // Grace period: the fitness curve needs a couple of weeks of data before the
+      // actual-vs-projected gap is meaningful. Don't flag "behind" this early — a low
+      // reading just reflects the plan ramping up, and calling it out hurts motivation.
+      const FITNESS_GRACE_DAYS = 14;
+      if (todayIdx < FITNESS_GRACE_DAYS) {
+        msg = '<strong>Settling in</strong> — your actual fitness curve builds as you log the first couple of weeks of training.';
+      } else if (ratio >= 1.05) msg = '<strong style="color:var(--orange-strong)">Ahead of plan</strong> — your training load is running higher than projected. Upcoming sessions may be nudged up.';
+      else if (ratio <= 0.92)   msg = '<strong style="color:var(--orange-strong)">Behind plan</strong> — actual load is below projection. The plan will ease upcoming sessions to help you catch up safely.';
+      else                      msg = '<strong>On track</strong> — your actual fitness is tracking the projected build closely.';
       caption.innerHTML = msg;
     }
   }
@@ -4782,6 +4829,38 @@ function sanitizeAiPlan(raw) {
 // coaching tweaks, so claude-3-haiku (4096-token output cap) is excluded here.
 const AI_PLAN_FALLBACKS = ['claude-sonnet-4-6', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022'];
 
+// The plan request is a single AI call, so these steps are cosmetic pacing rather than
+// real progress events — they just give the athlete a sense of what the coach is doing
+// during the ~10-20s round trip instead of a single static "generating" message.
+const AI_PLAN_PROGRESS_STEPS = [
+  'Reading your goals and history',
+  'Structuring training phases',
+  'Calibrating paces and zones',
+  'Building the week-by-week schedule',
+  'Finalizing your plan',
+];
+let aiqProgressTimer = null;
+
+function aiqStartProgress() {
+  const listEl = document.getElementById('aiq-progress-list');
+  listEl.innerHTML = AI_PLAN_PROGRESS_STEPS.map(label =>
+    `<li class="aiq-progress-item"><span class="aiq-progress-dot"></span>${label}</li>`).join('');
+  const items = [...listEl.children];
+  let i = -1;
+  const advance = () => {
+    if (i >= 0) items[i].classList.replace('is-active', 'is-done');
+    i++;
+    if (i >= items.length) { clearInterval(aiqProgressTimer); aiqProgressTimer = null; return; }
+    items[i].classList.add('is-active');
+  };
+  advance();
+  aiqProgressTimer = setInterval(advance, 2600);
+}
+
+function aiqStopProgress() {
+  if (aiqProgressTimer) { clearInterval(aiqProgressTimer); aiqProgressTimer = null; }
+}
+
 async function generateAiPlan() {
   const btn      = document.getElementById('aiq-nav-next');
   const backBtn  = document.getElementById('aiq-nav-back');
@@ -4808,6 +4887,7 @@ async function generateAiPlan() {
   backBtn.disabled = true;
   btn.textContent = 'Generating…';
   statusEl.classList.remove('hidden');
+  aiqStartProgress();
 
   try {
     const data = await aiFetch({
@@ -4835,6 +4915,7 @@ async function generateAiPlan() {
     console.error('AI plan generation:', e);
     aiqShowErr(`Couldn't generate a plan: ${e.message}. Please try again.`);
   } finally {
+    aiqStopProgress();
     btn.disabled = false;
     backBtn.disabled = false;
     btn.textContent = '✦ Generate plan';
