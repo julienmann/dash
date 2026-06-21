@@ -4410,6 +4410,7 @@ async function generateAiPlan() {
     const plan = sanitizeAiPlan(JSON.parse(jsonStr));
     DRAFT_PLAN = plan;
     closeAiBuilder();
+    document.getElementById('builder-actions').classList.remove('hidden');
     renderPlanBuilderSimple();
     window.scrollTo(0, 0);
 
