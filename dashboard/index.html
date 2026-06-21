@@ -105,7 +105,10 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .race-hdr-right{font-size:.72rem;color:var(--mid);}
 
 /* ── PROGRESS ── */
-.prog-wrap{height:3px;background:var(--border);border-radius:99px;overflow:hidden;margin-bottom:.75rem;}
+.prog-row{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;margin-bottom:.3rem;}
+.prog-label{font-size:.7rem;font-weight:600;color:var(--mid);}
+.prog-label-race{font-weight:700;color:var(--orange-strong);}
+.prog-wrap{height:6px;background:var(--border);border-radius:99px;overflow:hidden;margin-bottom:.75rem;}
 .prog-fill{height:100%;background:var(--orange);border-radius:99px;transition:width .8s cubic-bezier(.4,0,.2,1);}
 
 /* ── HERO ── */
@@ -841,6 +844,10 @@ footer{border-top:1px solid var(--border);background:var(--card);}
     <span class="race-hdr-right" id="race-hdr-right"></span>
   </div>
 
+  <div class="prog-row">
+    <span class="prog-label" id="prog-label-left"></span>
+    <span class="prog-label prog-label-race" id="prog-label-right"></span>
+  </div>
   <div class="prog-wrap"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
 
   <div id="hero-wrap">
@@ -2120,7 +2127,22 @@ function renderRaceHeader() {
 function renderProgress() {
   const total = RACE_DATE - TRAIN_START;
   const elapsed = Math.min(Math.max(today - TRAIN_START, 0), total);
-  document.getElementById('prog-fill').style.width = (elapsed / total * 100).toFixed(2) + '%';
+  const pct = total > 0 ? (elapsed / total) * 100 : 0;
+  document.getElementById('prog-fill').style.width = pct.toFixed(2) + '%';
+
+  const leftEl  = document.getElementById('prog-label-left');
+  const rightEl = document.getElementById('prog-label-right');
+  if (!leftEl || !rightEl) return;
+  const dToRace = daysUntil(RACE_DATE);
+
+  leftEl.textContent = today < TRAIN_START ? 'Plan not started'
+    : dToRace <= 0 ? 'Plan complete'
+    : `${Math.round(pct)}% complete`;
+
+  rightEl.textContent = dToRace > 1 ? `${dToRace} days to race day`
+    : dToRace === 1 ? '1 day to race day'
+    : dToRace === 0 ? '🏁 Race day!'
+    : '🏁 Race complete';
 }
 
 function renderHero() {
