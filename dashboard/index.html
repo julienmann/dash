@@ -977,7 +977,7 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 ══════════════════════════════════════════ -->
 <main id="plan-builder" class="page training-page hidden">
   <div class="builder-hdr">
-    <h1 class="builder-title">Edit Training Plan</h1>
+    <h1 class="builder-title" id="builder-title">Edit Training Plan</h1>
     <button class="builder-close" id="builder-cancel-top" type="button" aria-label="Close plan editor">✕</button>
   </div>
   <div id="builder-body"></div>
@@ -1291,18 +1291,22 @@ async function pushPlanToServer(plan) {
 
 // Pulls the server-synced plan (if any) before first render, so a returning
 // logged-in user sees the same plan on any device instead of this browser's copy.
+// Returns true if this account has never saved a plan — the caller must force
+// the Plan Builder's "create new plan" flow rather than rendering DEFAULT_PLAN.
 async function pullPlanFromServer() {
   const session = getSession();
-  if (!session) return;
+  if (!session) return false;
   try {
     const res  = await fetch(WORKER_URL + '/plan', { headers: { 'Authorization': 'Bearer ' + session.token } });
-    if (res.status === 401) { clearSession(); renderAccountUI?.(); toast('Your session expired. Log in again to sync across devices.', { error: true, duration: 5000 }); return; }
+    if (res.status === 401) { clearSession(); renderAccountUI?.(); toast('Your session expired. Log in again to sync across devices.', { error: true, duration: 5000 }); return false; }
     const data = await res.json();
+    if (data.plan === null) return true;
     if (data.plan && JSON.stringify(data.plan) !== localStorage.getItem(PLAN_KEY)) {
       localStorage.setItem(PLAN_KEY, JSON.stringify(data.plan));
       window.location.reload();
     }
-  } catch {}
+    return false;
+  } catch { return false; }
 }
 
 // Default plan: Julien's 70.3 build (Jun 12 2026 → Jul 5 2027).
@@ -3716,7 +3720,9 @@ function renderBuilderChooser() {
   document.getElementById('chooser-edit').addEventListener('click', openBuilderEdit);
 }
 
-function openBuilderCreate() {
+// showBack=false for a brand-new account with no plan yet — there's no chooser
+// (and no existing plan) to go back to, so the create flow is the only option.
+function openBuilderCreate(showBack = true) {
   document.getElementById('builder-actions').classList.add('hidden');
   document.getElementById('builder-body').innerHTML = `
     <div class="builder-card">
@@ -3734,13 +3740,35 @@ function openBuilderCreate() {
       <p class="builder-section-sub">Answer a few questions about your race, schedule, and fitness, and AI will draft a complete periodized plan.</p>
       <button class="builder-add-btn builder-cta-btn" id="open-ai-builder-btn" type="button">Start AI questionnaire</button>
     </div>
-    <button class="builder-btn builder-btn-secondary" id="builder-back-chooser" type="button" style="margin-top:.5rem;">← Back</button>`;
+    ${showBack ? `<button class="builder-btn builder-btn-secondary" id="builder-back-chooser" type="button" style="margin-top:.5rem;">← Back</button>` : ''}`;
   document.getElementById('open-ai-builder-btn').addEventListener('click', openAiBuilder);
   document.getElementById('load-preset-btn').addEventListener('click', () => {
     const id = document.getElementById('preset-select').value;
     if (id) applyPreset(id);
   });
-  document.getElementById('builder-back-chooser').addEventListener('click', renderBuilderChooser);
+  if (showBack) document.getElementById('builder-back-chooser').addEventListener('click', renderBuilderChooser);
+}
+
+// New account with no plan saved server-side yet. Locks the user into the
+// "create new plan" flow — no chooser, no cancel/back escape hatch into the
+// preloaded DEFAULT_PLAN (Julien's own Ironman build) — until they save a real one.
+function forceCreatePlan() {
+  setActiveNav('builder');
+  if (location.hash !== '#/builder') history.replaceState(null, '', '#/builder');
+  BUILDER_VIEWS.forEach(id => document.getElementById(id).classList.add('hidden'));
+  document.getElementById('builder-error').classList.add('hidden');
+  document.getElementById('ai-builder-body').classList.add('hidden');
+  document.getElementById('plan-builder').classList.remove('hidden');
+  document.getElementById('builder-cancel-top').classList.add('hidden');
+  document.getElementById('builder-cancel').classList.add('hidden');
+  document.getElementById('builder-reset').classList.add('hidden');
+  document.getElementById('nav-home').classList.add('hidden');
+  document.getElementById('edit-plan-btn').classList.add('hidden');
+  document.getElementById('builder-title').textContent = 'Create Your Training Plan';
+  DRAFT_PLAN = JSON.parse(JSON.stringify(DEFAULT_PLAN));
+  DRAFT_BASELINE = null;
+  openBuilderCreate(false);
+  window.scrollTo(0, 0);
 }
 
 function openBuilderEdit() {
@@ -5181,16 +5209,19 @@ function renderAccountUI() {
   });
 }
 renderAccountUI();
-pullPlanFromServer();
 
 // Confirm a plan save that triggered a reload (the toast can't survive the reload itself).
 try { if (sessionStorage.getItem('jm_saved_toast')) { sessionStorage.removeItem('jm_saved_toast'); toast('Plan saved.'); } } catch {}
 
-// Strava (async, may show connect card or content)
-stravaInit();
-
-// Deep link: restore the Plan Builder if the URL points at it (e.g. a bookmark or reload).
-if (location.hash === '#/builder') openPlanBuilder();
+// New accounts have no server-side plan yet — force plan creation before touching
+// Strava or the (otherwise pre-seeded) training view.
+pullPlanFromServer().then((needsNewPlan) => {
+  if (needsNewPlan) { forceCreatePlan(); return; }
+  // Strava (async, may show connect card or content)
+  stravaInit();
+  // Deep link: restore the Plan Builder if the URL points at it (e.g. a bookmark or reload).
+  if (location.hash === '#/builder') openPlanBuilder();
+});
 </script>
 </body>
 </html>
