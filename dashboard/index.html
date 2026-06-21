@@ -3519,9 +3519,15 @@ function renderFitnessChart() {
       const projNow = proj[todayIdx], actNow = act[act.length - 1];
       const ratio = projNow > 0 ? actNow / projNow : 1;
       let msg;
-      if (ratio >= 1.05)      msg = '<strong style="color:var(--orange-strong)">Ahead of plan</strong> — your training load is running higher than projected. Upcoming sessions may be nudged up.';
-      else if (ratio <= 0.92) msg = '<strong style="color:var(--orange-strong)">Behind plan</strong> — actual load is below projection. The plan will ease upcoming sessions to help you catch up safely.';
-      else                    msg = '<strong>On track</strong> — your actual fitness is tracking the projected build closely.';
+      // Grace period: the fitness curve needs a couple of weeks of data before the
+      // actual-vs-projected gap is meaningful. Don't flag "behind" this early — a low
+      // reading just reflects the plan ramping up, and calling it out hurts motivation.
+      const FITNESS_GRACE_DAYS = 14;
+      if (todayIdx < FITNESS_GRACE_DAYS) {
+        msg = '<strong>Settling in</strong> — your actual fitness curve builds as you log the first couple of weeks of training.';
+      } else if (ratio >= 1.05) msg = '<strong style="color:var(--orange-strong)">Ahead of plan</strong> — your training load is running higher than projected. Upcoming sessions may be nudged up.';
+      else if (ratio <= 0.92)   msg = '<strong style="color:var(--orange-strong)">Behind plan</strong> — actual load is below projection. The plan will ease upcoming sessions to help you catch up safely.';
+      else                      msg = '<strong>On track</strong> — your actual fitness is tracking the projected build closely.';
       caption.innerHTML = msg;
     }
   }
