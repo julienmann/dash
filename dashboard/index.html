@@ -1078,8 +1078,18 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       </div>
     </div>
 
-    <!-- Step 14 — review -->
+    <!-- Step 14 — VO₂ max (optional) -->
     <div class="aiq-step-card aiq-step hidden" data-step="14">
+      <div class="aiq-step-title">Do you know your VO₂ max?</div>
+      <p class="aiq-step-sub">Optional — if your watch (Garmin, Apple Watch, Coros) or a lab test reports one, enter it and the coach will calibrate your training paces and race prediction to it. Skip it and we'll estimate from your Strava history and goal time instead — your plan is just as complete either way.</p>
+      <div class="aiq-solo-field">
+        <input class="form-input aiq-big-input" type="number" min="20" max="95" step="0.1" id="aiq-vo2max" placeholder="e.g. 52 (ml/kg/min)">
+        <div class="aiq-field-note" id="aiq-vo2max-note"></div>
+      </div>
+    </div>
+
+    <!-- Step 15 — review -->
+    <div class="aiq-step-card aiq-step hidden" data-step="15">
       <div class="aiq-step-title">Ready to build your plan</div>
       <p class="aiq-step-sub">Here's what we'll hand to the coach. Go back to change anything, or generate the plan now.</p>
       <div class="aiq-review-grid" id="aiq-review-grid"></div>
@@ -1628,7 +1638,7 @@ const AI_OPT_KEY = 'jm_ai_opt_v1';
 
 // Bump whenever systemPrompt/response schema changes so stale cached
 // results (generated under an older prompt) don't get reused.
-const AI_PROMPT_VERSION = 4;
+const AI_PROMPT_VERSION = 6;
 
 function getCachedOpt() {
   try { return JSON.parse(localStorage.getItem(AI_OPT_KEY)); } catch { return null; }
@@ -1692,6 +1702,23 @@ function applyAiResult(result) {
       reason: c.reason || '',
     };
   }
+}
+
+// Personalized pace/HR/VO₂ zones for the coaching prompt, so its advice stays
+// physiologically realistic and never prescribes paces the athlete hasn't shown.
+function athleteZoneLines() {
+  const z = gAthleteZones;
+  if (!z) return '';
+  const src = ['Strava history'];
+  if (z.vo2max) src.push('VO₂ max');
+  const out = [`-- ATHLETE ZONES (calibrated from ${src.join(' + ')}) --`];
+  if (z.vo2max) out.push(`VO₂ max: ${z.vo2max} ml/kg/min`);
+  if (z.maxHR)  out.push(`Max HR ${z.maxHR} bpm → Zone 2 easy ≈ ${Math.round(z.maxHR*0.60)}–${Math.round(z.maxHR*0.70)} bpm, threshold (Zone 4) ≈ ${Math.round(z.maxHR*0.80)}–${Math.round(z.maxHR*0.90)} bpm`);
+  if (z.run)  out.push(`Run paces min/km${z.runFromVo2max ? ' (VO₂-max estimate)' : ''}: easy ${z.run.easy}, moderate ${z.run.moderate || '—'}, tempo ${z.run.tempo || '—'}, race ${z.run.race}`);
+  if (z.bike) out.push(`Bike: easy ${z.bike.easy}, tempo ${z.bike.tempo || '—'}, race ${z.bike.race}`);
+  if (z.swim) out.push(`Swim /100m: easy ${z.swim.easy}, race ${z.swim.race}`);
+  out.push('Keep prescribed paces/efforts consistent with these — never assign targets faster than the athlete has demonstrated.');
+  return out.join('\n');
 }
 
 // Format a completed activity's stats for the Claude prompt context
@@ -1761,6 +1788,9 @@ function buildPlanContext() {
     if (ds < todayStr) continue;
     lines.push(`${ds}: ${e.label}${ds === trnDateStr(RACE_DATE) ? ' (RACE DAY)' : ''}`);
   }
+
+  const zoneBlock = athleteZoneLines();
+  if (zoneBlock) lines.push('\n' + zoneBlock);
 
   const userRequest = getAiRequest();
   if (userRequest) lines.push(`\n-- ATHLETE REQUEST --\n${userRequest}`);
@@ -1837,11 +1867,20 @@ async function aiOptimizePlan(force = false) {
 `You are a certified endurance coach with 15+ years of experience coaching triathletes and runners from beginners through age-group podium finishers. You specialize in data-driven periodized training and recovery management. Your coaching style is direct, encouraging, and grounded in exercise science.
 
 COACHING PHILOSOPHY
-- 80/20 intensity distribution: approximately 80% of sessions at low intensity (conversational, nose-breathing, Zone 1–2) and 20% at moderate-to-high intensity. Never stack quality on top of fatigue.
+- 80/20 polarized distribution: roughly 80% of weekly TIME is easy aerobic work and ~20% is genuinely hard (threshold/VO2). Avoid the "moderate-intensity trap" — the grey zone (Zone 3 tempo) feels productive but is too hard to recover from and too easy to drive adaptation, so use it sparingly and deliberately, not as a default.
+- The easy 80% is Zone 2, not Zone 1. Zone 2 (conversational, nose-breathing, full sentences) IS the aerobic base — this is where endurance is built and where most volume lives. Zone 1 is active recovery and warm-up/cool-down only; athletes rarely program dedicated Zone 1 sessions. When you prescribe an "easy" or "recovery" session, you mean upper Zone 1 to Zone 2 — never let "easy" drift up into Zone 3.
 - Hard-Easy principle: never schedule two high-intensity sessions back-to-back. Quality sessions (intervals, tempo, race-pace) need 48h of easy or rest buffer before and after.
 - Consistency beats heroics: a slightly easier session completed is worth more than a perfect session skipped or that causes injury.
 - Specificity increases as race day approaches: in the final 8 weeks, training should feel increasingly like race day.
 - Run protection: running carries the highest injury risk of the three sports. When load must be cut, reduce run first.
+
+HEART-RATE ZONES (use these definitions when reasoning about effort; bands are % of max HR)
+- Zone 1 — Recovery (50–60%): walking/very easy. Warm-up, cool-down, active recovery only. Not a training stimulus.
+- Zone 2 — Aerobic / endurance (60–70%): the bedrock easy zone. Can speak in full sentences. The bulk of all training. Below the aerobic threshold.
+- Zone 3 — Tempo (70–80%): "comfortably hard," the grey zone. Useful for marathon/long-course race pace but easy to overuse; do not park easy days here.
+- Zone 4 — Threshold (80–90%): around lactate threshold. The core of most quality intervals (CSS, sweet-spot/threshold bike, tempo run). Sustainable ~20–60 min.
+- Zone 5 — VO2 / anaerobic (90–100%): short, hard reps with full recovery. Use sparingly, mostly in Build/Peak.
+- If the athlete's HR for an "easy" session sits in Zone 3+, that session was too hard — flag it and reinforce running/riding easy days truly easy.
 
 READING FITNESS AND FATIGUE SIGNALS (apply when analyzing PAST sessions)
 - Pace significantly slower than recent average at similar HR → accumulated fatigue; reduce upcoming load.
@@ -2306,69 +2345,123 @@ let gSport  = 'run';
 let gPeriod = 'ytd';
 let gAthleteZones = null; // personalized pace / HR zones derived from Strava history
 
-// ── Derive personal pace/HR zones from recent Strava history ─────
+// ── VO₂ max (optional athlete input) ─────────────────────────────
+const VO2MAX_KEY = 'jm_vo2max_v1';
+function loadVo2max() {
+  const v = parseFloat(localStorage.getItem(VO2MAX_KEY));
+  return Number.isFinite(v) && v >= 20 && v <= 95 ? v : null;
+}
+function saveVo2max(raw) {
+  const n = parseFloat(raw);
+  if (Number.isFinite(n) && n >= 20 && n <= 95) localStorage.setItem(VO2MAX_KEY, String(n));
+  else localStorage.removeItem(VO2MAX_KEY);
+}
+
+// Daniels-style run paces from VO₂ max: derive velocity at VO₂ max (vVO₂max) from the
+// VO₂-cost-of-running curve, then express each training band as a % of that velocity.
+// A physiologically grounded estimate used when Strava run history is thin.
+function runPacesFromVo2max(vo2) {
+  // VO₂(v) = -4.60 + 0.182258·v + 0.000104·v²  (v in m/min); solve for v at VO₂ = vo2max
+  const a = 0.000104, b = 0.182258, c = -(4.60 + vo2);
+  const vVO2 = (-b + Math.sqrt(b*b - 4*a*c)) / (2*a); // m/min
+  const pace = v => { const s = Math.round(60000 / v); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+  const band = (lo, hi) => `${pace(vVO2*hi)} – ${pace(vVO2*lo)}`; // "fast – slow" min/km
+  return {
+    easy:     band(0.62, 0.74),
+    moderate: band(0.74, 0.83),
+    tempo:    band(0.84, 0.90),
+    race:     band(0.88, 0.96),
+  };
+}
+
+// ── Derive personal pace/HR zones from recent Strava history (+ VO₂ max) ──
 function deriveAthleteZones() {
-  if (!gActivities || gActivities.length < 3) return null;
-  const cutoff = addDays(new Date(), -90);
-
-  // MM:SS pace from speed in m/s; distM=1000 for run, 100 for swim
-  const spdToPace = (distM, spd) => { const s = Math.round(distM / spd); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
-  const runPaceRange  = (lo, hi) => `${spdToPace(1000, hi)} – ${spdToPace(1000, lo)}`;
-  const swimPaceRange = (lo, hi) => `${spdToPace(100,  hi)} – ${spdToPace(100,  lo)}`;
-  const kphRange      = (lo, hi) => `${(lo*3.6).toFixed(0)}–${(hi*3.6).toFixed(0)} km/h`;
-
-  const pct = (arr, p) => arr[Math.max(0, Math.min(arr.length-1, Math.floor(arr.length * p)))];
-  const spd = a => a.average_speed;
-  const sportActivities = (types, minTime) =>
-    gActivities
-      .filter(a => [].concat(types).includes(a.type) && a.average_speed > 0 &&
-                   a.moving_time > minTime && new Date(a.start_date) >= cutoff)
-      .sort((a, b) => a.average_speed - b.average_speed);
+  const vo2max  = loadVo2max();
+  const haveActs = gActivities && gActivities.length >= 3;
+  if (!haveActs && !vo2max) return null;
 
   const zones = {};
+  if (vo2max) zones.vo2max = vo2max;
 
-  // Run zones — use activities ≥10 min with speed data
-  const runs = sportActivities(['Run','VirtualRun'], 600);
-  if (runs.length >= 3) {
-    const e = pct(runs, 0.25), m = pct(runs, 0.55), t = pct(runs, 0.80), r = pct(runs, 0.93);
-    zones.run = {
-      easy:     runPaceRange(spd(e)*0.96, spd(e)*1.08),
-      moderate: runPaceRange(spd(m)*0.97, spd(m)*1.05),
-      tempo:    runPaceRange(spd(t)*0.97, spd(t)*1.04),
-      race:     runPaceRange(spd(r)*0.97, spd(r)*1.03),
-    };
+  if (haveActs) {
+    const cutoff = addDays(new Date(), -90);
+
+    // MM:SS pace from speed in m/s; distM=1000 for run, 100 for swim
+    const spdToPace = (distM, spd) => { const s = Math.round(distM / spd); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+    const runPaceRange  = (lo, hi) => `${spdToPace(1000, hi)} – ${spdToPace(1000, lo)}`;
+    const swimPaceRange = (lo, hi) => `${spdToPace(100,  hi)} – ${spdToPace(100,  lo)}`;
+    const kphRange      = (lo, hi) => `${(lo*3.6).toFixed(0)}–${(hi*3.6).toFixed(0)} km/h`;
+
+    const pct = (arr, p) => arr[Math.max(0, Math.min(arr.length-1, Math.floor(arr.length * p)))];
+    const spd = a => a.average_speed;
+    const sportActivities = (types, minTime) =>
+      gActivities
+        .filter(a => [].concat(types).includes(a.type) && a.average_speed > 0 &&
+                     a.moving_time > minTime && new Date(a.start_date) >= cutoff)
+        .sort((a, b) => a.average_speed - b.average_speed);
+
+    // Max HR first — needed to calibrate the easy band to real Zone 2 efforts.
+    const maxHRs = gActivities
+      .filter(a => a.max_heartrate > 100 && a.max_heartrate < 220)
+      .map(a => a.max_heartrate);
+    const mhr = maxHRs.length ? Math.max(...maxHRs) : null;
+    zones.maxHR = mhr;
+
+    // Run zones — use activities ≥10 min with speed data
+    const runs = sportActivities(['Run','VirtualRun'], 600);
+    if (runs.length >= 3) {
+      const e = pct(runs, 0.25), m = pct(runs, 0.55), t = pct(runs, 0.80), r = pct(runs, 0.93);
+      zones.run = {
+        easy:     runPaceRange(spd(e)*0.96, spd(e)*1.08),
+        moderate: runPaceRange(spd(m)*0.97, spd(m)*1.05),
+        tempo:    runPaceRange(spd(t)*0.97, spd(t)*1.04),
+        race:     runPaceRange(spd(r)*0.97, spd(r)*1.03),
+      };
+      // HR-calibrate the easy band: anchor it to runs actually performed in Zone 2
+      // (60–72% of max HR), so "easy" reflects the athlete's real aerobic response
+      // rather than just their slowest quartile of runs.
+      if (mhr) {
+        const z2 = runs.filter(a => a.average_heartrate > 0 &&
+                                    a.average_heartrate >= mhr*0.60 &&
+                                    a.average_heartrate <= mhr*0.72)
+                       .map(spd).sort((x, y) => x - y);
+        if (z2.length >= 2) zones.run.easy = runPaceRange(z2[0]*0.99, z2[z2.length-1]*1.01);
+      }
+    }
+
+    // Swim zones
+    const swims = sportActivities('Swim', 300);
+    if (swims.length >= 2) {
+      const e = pct(swims, 0.20), m = pct(swims, 0.55), r = pct(swims, 0.88);
+      zones.swim = {
+        easy:     swimPaceRange(spd(e)*0.96, spd(e)*1.10),
+        moderate: swimPaceRange(spd(m)*0.97, spd(m)*1.05),
+        race:     swimPaceRange(spd(r)*0.97, spd(r)*1.03),
+      };
+    }
+
+    // Bike zones
+    const bikes = sportActivities(['Ride','VirtualRide'], 1200);
+    if (bikes.length >= 2) {
+      const e = pct(bikes, 0.20), m = pct(bikes, 0.50), t = pct(bikes, 0.78), r = pct(bikes, 0.92);
+      zones.bike = {
+        easy:     kphRange(spd(e)*0.93, spd(e)*1.08),
+        moderate: kphRange(spd(m)*0.96, spd(m)*1.06),
+        tempo:    kphRange(spd(t)*0.97, spd(t)*1.05),
+        race:     kphRange(spd(r)*0.97, spd(r)*1.04),
+      };
+    }
   }
 
-  // Swim zones
-  const swims = sportActivities('Swim', 300);
-  if (swims.length >= 2) {
-    const e = pct(swims, 0.20), m = pct(swims, 0.55), r = pct(swims, 0.88);
-    zones.swim = {
-      easy:     swimPaceRange(spd(e)*0.96, spd(e)*1.10),
-      moderate: swimPaceRange(spd(m)*0.97, spd(m)*1.05),
-      race:     swimPaceRange(spd(r)*0.97, spd(r)*1.03),
-    };
+  // VO₂ max fallback for run paces. Strava-demonstrated paces win when present (they
+  // reflect real capability); VO₂ max fills the gap when run history is thin so the
+  // athlete still gets physiologically grounded targets.
+  if (!zones.run && vo2max) {
+    zones.run = runPacesFromVo2max(vo2max);
+    zones.runFromVo2max = true;
   }
 
-  // Bike zones
-  const bikes = sportActivities(['Ride','VirtualRide'], 1200);
-  if (bikes.length >= 2) {
-    const e = pct(bikes, 0.20), m = pct(bikes, 0.50), t = pct(bikes, 0.78), r = pct(bikes, 0.92);
-    zones.bike = {
-      easy:     kphRange(spd(e)*0.93, spd(e)*1.08),
-      moderate: kphRange(spd(m)*0.96, spd(m)*1.06),
-      tempo:    kphRange(spd(t)*0.97, spd(t)*1.05),
-      race:     kphRange(spd(r)*0.97, spd(r)*1.04),
-    };
-  }
-
-  // Max HR from recent hard efforts (cap at 220 as sanity check)
-  const maxHRs = gActivities
-    .filter(a => a.max_heartrate > 100 && a.max_heartrate < 220)
-    .map(a => a.max_heartrate);
-  zones.maxHR = maxHRs.length ? Math.max(...maxHRs) : null;
-
-  return zones;
+  return Object.keys(zones).length ? zones : null;
 }
 const gDetailCache = {};
 
@@ -2745,15 +2838,26 @@ function generateActivityDescription(detail, activityType) {
   const cadence   = detail.average_cadence          ? Math.round(detail.average_cadence)          : null;
   const splits    = (detail.splits_metric || []).filter(s => s.moving_time > 10);
 
-  // Effort from HR (rough zones — no LTHR known)
+  // Effort from HR. Prefer % of the athlete's own max HR (from Strava history)
+  // so the zone read is accurate across ages/fitness; fall back to generic bpm
+  // cutoffs only when we have no personal max HR.
   let effortAdj = 'moderate';
   if (avgHR) {
-    if (avgHR < 125)      effortAdj = 'easy recovery';
-    else if (avgHR < 140) effortAdj = 'easy aerobic';
-    else if (avgHR < 155) effortAdj = 'steady aerobic';
-    else if (avgHR < 165) effortAdj = 'tempo';
-    else if (avgHR < 175) effortAdj = 'threshold';
-    else                  effortAdj = 'high-intensity';
+    const personalMaxHR = gAthleteZones?.maxHR;
+    if (personalMaxHR) {
+      const pct = avgHR / personalMaxHR;
+      if      (pct < 0.60) effortAdj = 'recovery (Zone 1)';
+      else if (pct < 0.70) effortAdj = 'easy aerobic (Zone 2)';
+      else if (pct < 0.80) effortAdj = 'tempo (Zone 3)';
+      else if (pct < 0.90) effortAdj = 'threshold (Zone 4)';
+      else                 effortAdj = 'VO2 / hard (Zone 5)';
+    } else {
+      if      (avgHR < 114) effortAdj = 'recovery (Zone 1)';
+      else if (avgHR < 133) effortAdj = 'easy aerobic (Zone 2)';
+      else if (avgHR < 152) effortAdj = 'tempo (Zone 3)';
+      else if (avgHR < 171) effortAdj = 'threshold (Zone 4)';
+      else                  effortAdj = 'VO2 / hard (Zone 5)';
+    }
   } else if (avgWatts) {
     if (avgWatts < 150)      effortAdj = 'easy recovery';
     else if (avgWatts < 220) effortAdj = 'steady aerobic';
@@ -3069,12 +3173,14 @@ const EFFORT_META = [
   { label:'Race',      dots:[1,1,1,1,1] },
 ];
 
+// Standard 5-zone model as % of max HR (Garmin/Polar boundaries).
+// Zone 1 = recovery only; Zone 2 = the aerobic base where easy volume lives.
 const HR_ZONE_DEFS = [
-  { label:'Zone 1', lo:0.50, hi:0.60, color:'#22C55E' },
-  { label:'Zone 2', lo:0.60, hi:0.72, color:'#84CC16' },
-  { label:'Zone 3', lo:0.72, hi:0.82, color:'#EAB308' },
-  { label:'Zone 4', lo:0.82, hi:0.90, color:'#F97316' },
-  { label:'Zone 5', lo:0.90, hi:1.00, color:'#EF4444' },
+  { label:'Zone 1', sub:'Recovery',  lo:0.50, hi:0.60, color:'#22C55E' },
+  { label:'Zone 2', sub:'Aerobic',   lo:0.60, hi:0.70, color:'#84CC16' },
+  { label:'Zone 3', sub:'Tempo',     lo:0.70, hi:0.80, color:'#EAB308' },
+  { label:'Zone 4', sub:'Threshold', lo:0.80, hi:0.90, color:'#F97316' },
+  { label:'Zone 5', sub:'VO2 max',   lo:0.90, hi:1.00, color:'#EF4444' },
 ];
 
 function getWorkoutDetails(act) {
@@ -3096,7 +3202,7 @@ function getWorkoutDetails(act) {
   const zIdx = Math.min(effort - 1, 4);
   const zDef = HR_ZONE_DEFS[zIdx];
   const hrZone = {
-    label: zDef.label,
+    label: zDef.sub ? `${zDef.label} · ${zDef.sub}` : zDef.label,
     range: `${Math.round(maxHR*zDef.lo)}–${Math.round(maxHR*zDef.hi)} bpm`,
     color: zDef.color,
     personalized: !!gAthleteZones?.maxHR,
@@ -3173,7 +3279,7 @@ function getWorkoutDetails(act) {
   else if (/brick/.test(label))                     focus = 'T2 practice. The first 500m run will feel heavy — stay relaxed, let the legs adapt.';
   else if (/strides/.test(label))                   focus = '4–6 × 20s strides at mile effort. Full recovery between each. Finish fresh.';
   else if (/taper swim|taper/.test(label))          focus = 'Keep sharp, not tired. Maintain pace, reduce volume — trust the taper.';
-  else if (/easy|recovery|opener|activation/.test(label)) focus = 'Zone 1–2 only. If you can\'t hold a sentence while running, slow down.';
+  else if (/easy|recovery|opener|activation/.test(label)) focus = 'Easy aerobic — keep it in Zone 2. If you can\'t hold a full sentence, slow down. Resist the urge to drift into Zone 3.';
 
   const structure = getWorkoutStructure(label, type, act.duration);
 
@@ -4123,10 +4229,14 @@ function applyAiqStravaPrefill() {
 }
 
 // ── Wizard state machine ──
-const AIQ_STEP_COUNT     = 15;
+const AIQ_STEP_COUNT     = 16;
 const AIQ_STEP_DISTANCES = 4;
 const AIQ_STEP_RACE_DATE   = 2;
 const AIQ_STEP_TRAIN_START = 5;
+// Steps that Strava history can answer objectively: current volume (7), days/week (8),
+// rest day (9), long-session day (10). When connected, we skip asking and use the
+// observed values — the athlete sees them confirmed on the review screen instead.
+const AIQ_STRAVA_ANSWERED_STEPS = [7, 8, 9, 10];
 let aiqStep = 0;
 
 // Fixed-distance running races (5K, 10K, etc.) already pin the run distance via the race-type
@@ -4139,9 +4249,11 @@ function aiqShouldSkipDistancesStep() {
 
 function aiqVisibleSteps() {
   const skipDistances = aiqShouldSkipDistancesStep();
+  const skipStrava    = !!aiqStravaSuggestions;
   const steps = [];
   for (let i = 0; i < AIQ_STEP_COUNT; i++) {
     if (i === AIQ_STEP_DISTANCES && skipDistances) continue;
+    if (skipStrava && AIQ_STRAVA_ANSWERED_STEPS.includes(i)) continue;
     steps.push(i);
   }
   return steps;
@@ -4212,6 +4324,7 @@ const AIQ_REVIEW_ROWS = [
   ['Days/week', () => aiqVal('aiq-days-per-week') || '—'],
   ['Rest day', () => DOW_FULL[+aiqVal('aiq-rest-day')] ?? '—'],
   ['Long day', () => DOW_FULL[+aiqVal('aiq-long-day')] ?? '—'],
+  ['VO₂ max', () => aiqVal('aiq-vo2max') ? `${aiqVal('aiq-vo2max')} ml/kg/min` : 'Not provided (estimated)'],
 ];
 
 function renderAiqReview() {
@@ -4236,6 +4349,10 @@ function openAiBuilder() {
   if (!startEl.value) startEl.value = trnDateStr(today);
   const dateEl = document.getElementById('aiq-race-date');
   if (!dateEl.value) dateEl.value = trnDateStr(addDays(today, 168));
+
+  const vo2El = document.getElementById('aiq-vo2max');
+  const savedVo2 = loadVo2max();
+  if (savedVo2 && !vo2El.value) { vo2El.value = savedVo2; vo2El.dispatchEvent(new Event('input')); }
 
   syncAiSportFields(document.getElementById('aiq-race-type').value);
   applyAiqStravaPrefill();
@@ -4285,6 +4402,10 @@ function buildAiQuestionnaireContext() {
   lines.push(`Total training window: ~${totalWeeks} weeks`);
   lines.push(`Experience level: ${AI_EXPERIENCE_LABELS[aiqVal('aiq-experience')] || 'unspecified'}`);
   lines.push(`Current training volume: ~${aiqVal('aiq-current-hours') || 'unspecified'} hrs/week`);
+  const vo2 = aiqVal('aiq-vo2max');
+  lines.push(vo2
+    ? `VO₂ max: ${vo2} ml/kg/min (athlete-provided — use to calibrate paces and predict race time)`
+    : `VO₂ max: not provided — estimate fitness from goal time, experience, and Strava history`);
   lines.push(`Days available to train per week: ${aiqVal('aiq-days-per-week') || 'unspecified'}`);
   lines.push(`Preferred rest day: ${DOW_FULL[+aiqVal('aiq-rest-day')] ?? 'no preference'}`);
   lines.push(`Preferred long-session day: ${DOW_FULL[+aiqVal('aiq-long-day')] ?? 'no preference'}`);
@@ -4325,6 +4446,11 @@ Running:
 - "Strides — 4–6×20s at mile effort, full recovery" (neuromuscular activation)
 - "Race-pace run — dial in your goal rhythm" (specificity)
 - "Hill repeats — 6×90s hard uphill, jog down recovery"
+- "Fartlek — 8×(1 min surge / 2 min easy) by feel" (unstructured speed play)
+- "Progression run — start easy, finish at tempo" (pacing discipline + aerobic stimulus)
+- "Cruise intervals — 4×1.5 km at threshold, 60s jog" (threshold volume, lower strain than a continuous tempo)
+- "Negative-split run — second half faster than the first" (control + finishing strength)
+- "Mixed-tempo run — alternate 3 min tempo / 2 min easy float" (threshold endurance)
 
 Swimming:
 - "Technique drill session — focus on catch and rotation" (form-first, low intensity)
@@ -4348,6 +4474,12 @@ Brick (bike → run):
 - "Bike to run transition — moderate bike, 10–15 min easy run" (introduction to T2 legs)
 - "Long brick — race-sim bike effort + 20–30 min run" (peak specificity)
 - "Confidence brick — goal-pace bike + race-pace run off the bike" (final race rehearsal)
+
+WORKOUT VARIETY & ENGAGEMENT — a plan the athlete looks forward to is a plan they finish:
+- Do not repeat the identical named session week after week. Rotate within each intensity band so quality days stay fresh while serving the same physiological purpose (e.g. across weeks alternate tempo run → cruise intervals → fartlek → progression run → mixed-tempo, all of which develop threshold).
+- Match novelty to phase and experience: Foundation stays simple (variety comes from terrain and route, not intensity); Build/Peak is where interval structures rotate. New / "some experience" athletes get fewer, simpler variants; experienced / competitive athletes get more sophisticated sets.
+- If Strava history is provided, personalize: lean toward session types and terrain the athlete already does well, introduce variety where their training looks monotonous, and keep paces within what they have demonstrated.
+- Variety serves the goal — it never adds intensity the phase doesn't call for. Preserve the 80/20 easy-hard balance and the hard-easy spacing regardless of how sessions are named.
 
 PERIODIZATION STRUCTURE — build phases like a real coach:
 
@@ -4430,6 +4562,11 @@ RACE-DISTANCE-SPECIFIC GUIDANCE:
 - Half-marathon: tempo work is king. Long runs peak at 26–28 km. 2-week taper.
 - Marathon: aerobic base is everything. Long runs peak at 32–35 km. 3-week taper. No hard efforts after week 18 of a typical 20-week plan.
 - 50K ultra: back-to-back long run weekends in peak phase (long Saturday + moderate Sunday). Time-on-feet matters more than pace. 2–3 week taper.
+
+USING VO₂ MAX (only if the athlete provided one — it is optional):
+- Treat it as a fitness anchor. Use it to estimate realistic easy/threshold/race paces (Daniels VDOT relationships) and to sanity-check the stated goal time: if the goal is well beyond what the VO₂ max supports, still build toward it but keep early-phase paces honest rather than fantasy.
+- Calibrate the effort descriptions in session names to it. When Strava paces are also available, prefer the demonstrated paces and use VO₂ max only as a cross-check.
+- If no VO₂ max was given, estimate fitness from goal time, experience level, and Strava history as usual. Never block on it and never assume a value.
 
 INJURY/LIMITATION HANDLING:
 - Reduce or substitute affected sport, not just cut sessions randomly. If athlete can't run: substitute easy bike or swim of similar duration.
@@ -4541,6 +4678,11 @@ async function generateAiPlan() {
     return;
   }
 
+  // Persist the optional VO₂ max and refresh derived zones so paces shown elsewhere
+  // (workout details, daily coach) reflect it immediately — even with no Strava data.
+  saveVo2max(document.getElementById('aiq-vo2max').value);
+  gAthleteZones = deriveAthleteZones();
+
   const { context, totalWeeks } = buildAiQuestionnaireContext();
   const systemPrompt = AI_PLAN_SYSTEM_PROMPT.replace('{totalWeeks}', totalWeeks);
 
@@ -4581,6 +4723,19 @@ async function generateAiPlan() {
     statusEl.classList.add('hidden');
   }
 }
+
+// Live feedback: show the estimated easy/threshold paces as the athlete types a VO₂ max,
+// so the optional field feels intelligent and the payoff for entering it is visible.
+document.getElementById('aiq-vo2max').addEventListener('input', (e) => {
+  const note = document.getElementById('aiq-vo2max-note');
+  const v = parseFloat(e.target.value);
+  if (Number.isFinite(v) && v >= 20 && v <= 95) {
+    const p = runPacesFromVo2max(v);
+    note.textContent = `≈ easy ${p.easy} · threshold ${p.tempo} min/km`;
+  } else {
+    note.textContent = '';
+  }
+});
 
 document.getElementById('aiq-nav-back').addEventListener('click', () => {
   const visible = aiqVisibleSteps();
