@@ -646,6 +646,7 @@ footer{border-top:1px solid var(--border);background:var(--card);}
     <div class="topnav-right">
       <button class="topnav-link" id="edit-plan-btn" type="button">Edit Plan</button>
       <button class="topnav-link hidden" id="nav-connect" type="button">Connect Strava</button>
+      <span class="topnav-alltime hidden" id="topnav-account"></span>
       <span class="topnav-alltime hidden" id="topnav-alltime"></span>
       <span class="topnav-race" id="nav-race"></span>
     </div>
@@ -1103,6 +1104,39 @@ const SPORT_CFG = {
 // the final phase stretching to meet raceDate exactly.
 const PLAN_KEY = 'jm_plan_v1';
 
+// ── Account session — set by the marketing page on sign-up/login ────
+const SESSION_KEY = 'jm_session_v1';
+function getSession()  { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; } }
+function clearSession(){ localStorage.removeItem(SESSION_KEY); }
+
+async function pushPlanToServer(plan) {
+  const session = getSession();
+  if (!session) return;
+  try {
+    await fetch(WORKER_URL + '/plan', {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.token },
+      body:    JSON.stringify({ plan }),
+    });
+  } catch {}
+}
+
+// Pulls the server-synced plan (if any) before first render, so a returning
+// logged-in user sees the same plan on any device instead of this browser's copy.
+async function pullPlanFromServer() {
+  const session = getSession();
+  if (!session) return;
+  try {
+    const res  = await fetch(WORKER_URL + '/plan', { headers: { 'Authorization': 'Bearer ' + session.token } });
+    if (res.status === 401) { clearSession(); return; }
+    const data = await res.json();
+    if (data.plan && JSON.stringify(data.plan) !== localStorage.getItem(PLAN_KEY)) {
+      localStorage.setItem(PLAN_KEY, JSON.stringify(data.plan));
+      window.location.reload();
+    }
+  } catch {}
+}
+
 // Default plan: Julien's 70.3 build (Jun 12 2026 → Jul 5 2027).
 // Seeds first-time visitors and is the "Reset to default" target.
 const DEFAULT_PLAN = {
@@ -1223,6 +1257,7 @@ function loadRawPlan() {
 
 function savePlan(plan) {
   localStorage.setItem(PLAN_KEY, JSON.stringify(plan));
+  pushPlanToServer(plan);
 }
 
 // Expands a stored plan into the date-resolved structures the dashboard renders from
@@ -4581,6 +4616,21 @@ document.getElementById('cal-grid').addEventListener('click', e => {
 });
 
 document.getElementById('footer-year').textContent = new Date().getFullYear();
+
+// ── Account UI ───────────────────────────────────────────────────
+function renderAccountUI() {
+  const session = getSession();
+  const el = document.getElementById('topnav-account');
+  if (!session) { el.classList.add('hidden'); el.innerHTML = ''; return; }
+  el.classList.remove('hidden');
+  el.innerHTML = `${esc(session.email)} · <button class="topnav-link" id="logout-btn" type="button" style="padding:0;">Log out</button>`;
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    clearSession();
+    window.location.href = '/';
+  });
+}
+renderAccountUI();
+pullPlanFromServer();
 
 // Strava (async, may show connect card or content)
 stravaInit();

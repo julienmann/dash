@@ -6,3 +6,18 @@ compatibility_date = "2025-01-01"
 # Comma-separated list of origins allowed to call this worker.
 # Add local dev origins here as needed.
 ALLOWED_ORIGIN = "https://julienmann.ca,https://dash.julienmann.ca,http://localhost:8080"
+
+# D1 database for accounts + synced plans. Create it once with:
+#   wrangler d1 create jm-dashboard-db
+#   wrangler d1 execute jm-dashboard-db --remote --file=schema.sql
+# then paste the database_id it prints below.
+[[d1_databases]]
+binding     = "DB"
+database_name = "jm-dashboard-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+# Secrets (set via CLI — never put real values here):
+#   wrangler secret put STRAVA_CLIENT_ID
+#   wrangler secret put STRAVA_CLIENT_SECRET
+#   wrangler secret put ANTHROPIC_API_KEY
+#   wrangler secret put SESSION_SECRET   (any long random string, e.g. `openssl rand -base64 32`)

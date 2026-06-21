@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; connect-src https://www.strava.com https://strava-auth.jmdashboard.workers.dev; font-src https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;">
 <title>Training Plan — plan your race, then train for it</title>
 <meta name="description" content="A Strava-connected training planner for runners (5K–50K) and triathletes (sprint–Ironman). Pick a preset, generate a plan with AI, or build your own.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -33,6 +34,7 @@ body{
   justify-content:center;
   padding:1.5rem;
 }
+.hidden{display:none!important;}
 .welcome-wrap{width:100%;max-width:30rem;}
 .welcome-card{
   background:var(--card);
@@ -48,7 +50,7 @@ body{
 .welcome-head{font-size:1.55rem;font-weight:800;line-height:1.25;margin:0 0 .65rem;}
 .welcome-sub{font-size:.97rem;line-height:1.55;color:var(--mid);margin:0 0 1.6rem;}
 .welcome-actions{display:flex;flex-direction:column;gap:.65rem;}
-.connect-btn,.strava-btn{
+.connect-btn,.strava-btn,.account-btn{
   font-family:inherit;
   font-size:.95rem;
   font-weight:700;
@@ -61,13 +63,22 @@ body{
   justify-content:center;
   gap:.5rem;
   text-decoration:none;
+  width:100%;
 }
 .connect-btn{background:var(--orange-strong);color:#fff;}
 .connect-btn:hover{background:#a8330d;}
-.strava-btn{background:var(--card);color:var(--fg);border:1.5px solid var(--border);}
-.strava-btn:hover{border-color:var(--orange-strong);}
+.strava-btn,.account-btn{background:var(--card);color:var(--fg);border:1.5px solid var(--border);}
+.strava-btn:hover,.account-btn:hover{border-color:var(--orange-strong);}
 .strava-btn svg{width:18px;height:18px;fill:#FC4C02;}
 .welcome-foot{font-size:.8rem;color:var(--mid);margin:1.1rem 0 0;line-height:1.5;}
+.auth-form{display:flex;flex-direction:column;gap:.7rem;text-align:left;}
+.auth-field{display:flex;flex-direction:column;gap:.3rem;}
+.auth-label{font-size:.76rem;font-weight:600;color:var(--fg);}
+.auth-input{font-family:inherit;font-size:.92rem;padding:.65rem .8rem;border:1.5px solid var(--border);border-radius:.55rem;outline:none;}
+.auth-input:focus{border-color:var(--orange);}
+.auth-error{font-size:.8rem;color:#C0392B;font-weight:500;min-height:1.1em;text-align:left;}
+.auth-back{font-size:.82rem;color:var(--mid);font-weight:600;text-align:center;padding:.3rem 0;cursor:pointer;background:none;border:none;}
+.auth-back:hover{color:var(--fg);}
 </style>
 </head>
 <body>
@@ -90,24 +101,108 @@ body{
     </div>
     <div class="welcome-wordmark">Training Plan</div>
     <h1 class="welcome-head">Plan your race, then train for it.</h1>
-    <p class="welcome-sub">Choose a ready-made plan, generate one with AI, or build your own, for any distance from a 5K to a full Ironman. Connect Strava and your upcoming sessions adapt to how you're actually training.</p>
-    <div class="welcome-actions">
+    <p class="welcome-sub">Choose a ready-made plan, generate one with AI, or build your own, for any distance from a 5K to a full Ironman. Create an account to keep your plan synced across devices, or connect Strava so upcoming sessions adapt to how you're actually training.</p>
+
+    <!-- ── Default: three entry options ── -->
+    <div class="welcome-actions" id="entry-actions">
+      <button class="connect-btn" id="show-register-btn" type="button">Create account →</button>
+      <button class="account-btn" id="show-login-btn" type="button">Log in</button>
       <a class="strava-btn" id="connect-btn" href="#">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
         Connect with Strava
       </a>
-      <a class="connect-btn" href="/dashboard/">Start planning →</a>
     </div>
-    <p class="welcome-foot">Connecting Strava is optional. You can plan and follow a schedule without it.</p>
+
+    <!-- ── Create account form ── -->
+    <form class="auth-form hidden" id="register-form">
+      <div class="auth-field">
+        <label class="auth-label" for="register-email">Email</label>
+        <input class="auth-input" type="email" id="register-email" autocomplete="email" required>
+      </div>
+      <div class="auth-field">
+        <label class="auth-label" for="register-password">Password</label>
+        <input class="auth-input" type="password" id="register-password" autocomplete="new-password" minlength="8" required>
+      </div>
+      <div class="auth-error" id="register-error" aria-live="polite"></div>
+      <button class="connect-btn" type="submit">Create account →</button>
+      <button class="auth-back" type="button" id="register-back">← Back</button>
+    </form>
+
+    <!-- ── Log in form ── -->
+    <form class="auth-form hidden" id="login-form">
+      <div class="auth-field">
+        <label class="auth-label" for="login-email">Email</label>
+        <input class="auth-input" type="email" id="login-email" autocomplete="email" required>
+      </div>
+      <div class="auth-field">
+        <label class="auth-label" for="login-password">Password</label>
+        <input class="auth-input" type="password" id="login-password" autocomplete="current-password" required>
+      </div>
+      <div class="auth-error" id="login-error" aria-live="polite"></div>
+      <button class="connect-btn" type="submit">Log in →</button>
+      <button class="auth-back" type="button" id="login-back">← Back</button>
+    </form>
+
+    <p class="welcome-foot" id="welcome-foot">An account is optional. You can also just start planning without signing up — your plan lives in this browser instead of syncing across devices.</p>
+    <div class="welcome-actions hidden" id="skip-actions">
+      <a class="strava-btn" href="/dashboard/">Skip — start planning in this browser →</a>
+    </div>
   </div>
 </div>
 <script>
 const STRAVA_CLIENT_ID = '250989';
+const WORKER_URL       = 'https://strava-auth.jmdashboard.workers.dev';
+const SESSION_KEY      = 'jm_session_v1';
+
+const entryActions   = document.getElementById('entry-actions');
+const registerForm   = document.getElementById('register-form');
+const loginForm      = document.getElementById('login-form');
+const welcomeFoot     = document.getElementById('welcome-foot');
+const skipActions     = document.getElementById('skip-actions');
+
+function showPanel(panel) {
+  entryActions.classList.add('hidden');
+  registerForm.classList.add('hidden');
+  loginForm.classList.add('hidden');
+  welcomeFoot.classList.add('hidden');
+  skipActions.classList.add('hidden');
+  if (panel) panel.classList.remove('hidden');
+  else { entryActions.classList.remove('hidden'); welcomeFoot.classList.remove('hidden'); }
+}
+
+document.getElementById('show-register-btn').addEventListener('click', () => { showPanel(registerForm); skipActions.classList.remove('hidden'); });
+document.getElementById('show-login-btn').addEventListener('click', () => { showPanel(loginForm); skipActions.classList.remove('hidden'); });
+document.getElementById('register-back').addEventListener('click', () => showPanel(null));
+document.getElementById('login-back').addEventListener('click', () => showPanel(null));
+
 document.getElementById('connect-btn').addEventListener('click', (e) => {
   e.preventDefault();
   const redirectUri = window.location.origin + '/dashboard/';
   const p = new URLSearchParams({ client_id:STRAVA_CLIENT_ID, response_type:'code', redirect_uri:redirectUri, approval_prompt:'auto', scope:'activity:read_all,read' });
   window.location.href = 'https://www.strava.com/oauth/authorize?' + p;
+});
+
+async function submitAuth(path, email, password, errorEl) {
+  errorEl.textContent = '';
+  try {
+    const res  = await fetch(WORKER_URL + path, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email, password }) });
+    const data = await res.json();
+    if (!res.ok) { errorEl.textContent = data.error || 'Something went wrong'; return; }
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ token:data.token, email:data.email }));
+    window.location.href = '/dashboard/';
+  } catch {
+    errorEl.textContent = 'Could not reach the server. Try again.';
+  }
+}
+
+registerForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  submitAuth('/auth/register', document.getElementById('register-email').value.trim(), document.getElementById('register-password').value, document.getElementById('register-error'));
+});
+
+loginForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  submitAuth('/auth/login', document.getElementById('login-email').value.trim(), document.getElementById('login-password').value, document.getElementById('login-error'));
 });
 </script>
 </body>
