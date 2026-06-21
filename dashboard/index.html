@@ -4429,6 +4429,15 @@ function buildAiQuestionnaireContext() {
     lines.push(`Longest single session in this window: ${s.longestSession} minutes`);
   }
 
+  // Demonstrated capability — actual paces and HR zones derived from the athlete's own recent
+  // activities (and VO₂ max if provided). This is what the coach must calibrate every pace
+  // target and effort level to — not the VO₂ max field alone. Empty when no data to derive from.
+  const zoneBlock = athleteZoneLines();
+  if (zoneBlock) {
+    lines.push('');
+    lines.push(zoneBlock);
+  }
+
   return { context: lines.join('\n'), totalWeeks };
 }
 
@@ -4563,10 +4572,14 @@ RACE-DISTANCE-SPECIFIC GUIDANCE:
 - Marathon: aerobic base is everything. Long runs peak at 32–35 km. 3-week taper. No hard efforts after week 18 of a typical 20-week plan.
 - 50K ultra: back-to-back long run weekends in peak phase (long Saturday + moderate Sunday). Time-on-feet matters more than pace. 2–3 week taper.
 
-USING VO₂ MAX (only if the athlete provided one — it is optional):
-- Treat it as a fitness anchor. Use it to estimate realistic easy/threshold/race paces (Daniels VDOT relationships) and to sanity-check the stated goal time: if the goal is well beyond what the VO₂ max supports, still build toward it but keep early-phase paces honest rather than fantasy.
-- Calibrate the effort descriptions in session names to it. When Strava paces are also available, prefer the demonstrated paces and use VO₂ max only as a cross-check.
-- If no VO₂ max was given, estimate fitness from goal time, experience level, and Strava history as usual. Never block on it and never assume a value.
+SETTING PACES, ZONES & SESSION DIFFICULTY — synthesize EVERY signal you are given, never one field in isolation (and never VO₂ max alone). You get several windows into the athlete's fitness; weigh them together, in roughly this order of trust:
+1. Demonstrated capability — the "ATHLETE ZONES" block, when present: actual easy / moderate / tempo / race paces (and HR zones) derived from the athlete's own recent Strava activities. This is the STRONGEST signal — it is what they have truly done. Set easy and long-session paces from the easy band, quality-session paces from the tempo/threshold/race bands, and HR targets from the measured max-HR zones. NEVER prescribe a pace or effort the data shows the athlete cannot currently hold.
+2. Strava training-history summary — real weekly volume, active days, longest session, rest/long-day patterns: anchor week-1 load and the weekly structure to these, not to self-reported estimates.
+3. VO₂ max (only if provided) — a cross-check and gap-filler, not the primary anchor. Use Daniels VDOT relationships to sanity-check the goal time and to estimate paces ONLY where demonstrated data is thin or missing. When demonstrated paces exist, they win; VO₂ max merely confirms or refines them.
+4. Goal time, experience level, and current volume — use to set ambition, phase complexity, and the starting point, and as the fallback basis for paces when little objective data exists.
+Reconcile conflicts explicitly: if the goal time implies paces faster than the athlete has demonstrated (or than the VO₂ max supports), still build toward the goal, but keep early-phase paces honest and progress into goal pace — never write fantasy splits on day one.
+Calibrate SESSION DIFFICULTY the same way: a session's named effort, duration, and placement must reflect THIS athlete's real fitness and recent load. "Easy" means their demonstrated easy pace/HR; "tempo" means their demonstrated threshold — scale every effort label and target to the individual, not to generic textbook numbers.
+If no objective data exists at all (no Strava, no VO₂ max), do not silently assume a level — estimate conservatively from goal time, experience, and stated volume, and start slightly easier rather than harder.
 
 INJURY/LIMITATION HANDLING:
 - Reduce or substitute affected sport, not just cut sessions randomly. If athlete can't run: substitute easy bike or swim of similar duration.
