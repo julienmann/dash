@@ -1295,22 +1295,21 @@ async function pushPlanToServer(plan) {
 
 // Pulls the server-synced plan (if any) before first render, so a returning
 // logged-in user sees the same plan on any device instead of this browser's copy.
-// Returns true if this account has never saved a plan — the caller must force
-// the Plan Builder's "create new plan" flow rather than rendering DEFAULT_PLAN.
+// A null plan (account exists server-side but never saved one) is left alone here —
+// the boot sequence below treats "nothing in localStorage yet" as the single signal
+// that plan creation must be forced, covering both account and Strava-only new users.
 async function pullPlanFromServer() {
   const session = getSession();
-  if (!session) return false;
+  if (!session) return;
   try {
     const res  = await fetch(WORKER_URL + '/plan', { headers: { 'Authorization': 'Bearer ' + session.token } });
-    if (res.status === 401) { clearSession(); renderAccountUI?.(); toast('Your session expired. Log in again to sync across devices.', { error: true, duration: 5000 }); return false; }
+    if (res.status === 401) { clearSession(); renderAccountUI?.(); toast('Your session expired. Log in again to sync across devices.', { error: true, duration: 5000 }); return; }
     const data = await res.json();
-    if (data.plan === null) return true;
     if (data.plan && JSON.stringify(data.plan) !== localStorage.getItem(PLAN_KEY)) {
       localStorage.setItem(PLAN_KEY, JSON.stringify(data.plan));
       window.location.reload();
     }
-    return false;
-  } catch { return false; }
+  } catch {}
 }
 
 // Default plan: Julien's 70.3 build (Jun 12 2026 → Jul 5 2027).
@@ -5227,12 +5226,13 @@ renderAccountUI();
 // Confirm a plan save that triggered a reload (the toast can't survive the reload itself).
 try { if (sessionStorage.getItem('jm_saved_toast')) { sessionStorage.removeItem('jm_saved_toast'); toast('Plan saved.'); } } catch {}
 
-// New accounts have no server-side plan yet — force plan creation before touching
-// Strava or the (otherwise pre-seeded) training view.
-pullPlanFromServer().then((needsNewPlan) => {
-  if (needsNewPlan) { forceCreatePlan(); return; }
-  // Strava (async, may show connect card or content)
-  stravaInit();
+// Run the server plan sync and Strava connect/data-fetch in parallel (as before), then
+// decide what to show. A brand-new visitor — whether they signed up for an account, just
+// connected Strava, or both — has nothing in PLAN_KEY yet; force plan creation instead of
+// silently falling back to DEFAULT_PLAN (Julien's own Ironman build). Strava still runs
+// first so an in-flight OAuth code gets exchanged and saved before we lock the UI.
+Promise.all([pullPlanFromServer(), stravaInit()]).then(() => {
+  if (localStorage.getItem(PLAN_KEY) === null) { forceCreatePlan(); return; }
   // Deep link: restore the Plan Builder if the URL points at it (e.g. a bookmark or reload).
   if (location.hash === '#/builder') openPlanBuilder();
 });
