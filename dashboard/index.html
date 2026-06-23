@@ -1061,6 +1061,10 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       <option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option>
       <option value="6" selected>Sunday</option>
     </select>
+    <select class="form-input hidden" id="aiq-hidden-exp">
+      <option value="no" selected>No</option>
+      <option value="yes">Yes</option>
+    </select>
 
     <!-- Step 0 — race type -->
     <div class="aiq-step-card aiq-step" data-step="0">
@@ -1166,20 +1170,42 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       <div class="aiq-day-grid" id="aiq-long-day-grid"></div>
     </div>
 
-    <!-- Step 11 — session length limits -->
+    <!-- Step 11 — age (Strava doesn't expose birthdate via our scope, so always ask) -->
     <div class="aiq-step-card aiq-step hidden" data-step="11">
-      <div class="aiq-step-title">Any time limits on a normal day?</div>
-      <p class="aiq-step-sub">Optional — caps how long weekday and weekend sessions can run.</p>
-      <div class="aiq-step-grid aiq-solo-field">
-        <div class="form-group"><label class="form-label">Max weekday (min)</label>
-          <input class="form-input aiq-big-input" type="number" min="0" step="5" id="aiq-weekday-max" placeholder="e.g. 75"></div>
-        <div class="form-group"><label class="form-label">Max weekend (min)</label>
-          <input class="form-input aiq-big-input" type="number" min="0" step="5" id="aiq-weekend-max" placeholder="e.g. 150"></div>
+      <div class="aiq-step-title">How old are you?</div>
+      <p class="aiq-step-sub">Helps the coach judge recovery needs and intensity tolerance.</p>
+      <div class="aiq-solo-field">
+        <input class="form-input aiq-big-input" type="number" min="10" max="100" id="aiq-age" placeholder="e.g. 34">
       </div>
     </div>
 
-    <!-- Step 12 — injuries -->
+    <!-- Step 12 — weight (not exposed by our Strava scope either) -->
     <div class="aiq-step-card aiq-step hidden" data-step="12">
+      <div class="aiq-step-title">What's your weight?</div>
+      <p class="aiq-step-sub">Used to sanity-check effort and pacing — any unit is fine.</p>
+      <div class="aiq-solo-field">
+        <input class="form-input aiq-big-input" type="text" id="aiq-weight" placeholder="e.g. 70 kg or 154 lb">
+      </div>
+    </div>
+
+    <!-- Step 13 — hidden training history (yes/no) -->
+    <div class="aiq-step-card aiq-step hidden" data-step="13">
+      <div class="aiq-step-title">Any training history that wouldn't show up on Strava?</div>
+      <p class="aiq-step-sub">e.g. years of swimming, gym training, or other sports before you started tracking activities.</p>
+      <div class="aiq-type-grid" id="aiq-hidden-exp-grid"></div>
+    </div>
+
+    <!-- Step 14 — hidden training history detail (only shown if the previous answer was "Yes") -->
+    <div class="aiq-step-card aiq-step hidden" data-step="14">
+      <div class="aiq-step-title">Tell us about that experience</div>
+      <p class="aiq-step-sub">Roughly how long and in what sport — the coach factors this into your base fitness.</p>
+      <div class="aiq-solo-field">
+        <textarea class="form-input aiq-big-input" id="aiq-hidden-exp-detail" rows="2" placeholder="e.g. 6 years of competitive swimming through college, stopped 5 years ago"></textarea>
+      </div>
+    </div>
+
+    <!-- Step 15 — injuries -->
+    <div class="aiq-step-card aiq-step hidden" data-step="15">
       <div class="aiq-step-title">Any injuries to work around?</div>
       <p class="aiq-step-sub">Optional — the coach will substitute or scale back the affected sport.</p>
       <div class="aiq-solo-field">
@@ -1187,8 +1213,8 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       </div>
     </div>
 
-    <!-- Step 13 — VO₂ max (optional) -->
-    <div class="aiq-step-card aiq-step hidden" data-step="13">
+    <!-- Step 16 — VO₂ max (optional) -->
+    <div class="aiq-step-card aiq-step hidden" data-step="16">
       <div class="aiq-step-title">Do you know your VO₂ max?</div>
       <p class="aiq-step-sub">Optional — if your watch (Garmin, Apple Watch, Coros) or a lab test reports one, enter it and the coach will calibrate your training paces and race prediction to it. Skip it and we'll estimate from your Strava history and goal time instead — your plan is just as complete either way.</p>
       <div class="aiq-solo-field">
@@ -1197,8 +1223,8 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       </div>
     </div>
 
-    <!-- Step 14 — anything else (last question; "Next" generates the plan directly, no review step) -->
-    <div class="aiq-step-card aiq-step hidden" data-step="14">
+    <!-- Step 17 — anything else (last question; "Next" generates the plan directly, no review step) -->
+    <div class="aiq-step-card aiq-step hidden" data-step="17">
       <div class="aiq-step-title">Anything else?</div>
       <p class="aiq-step-sub">Optional — tune-up races, travel, or specific goals to plan around.</p>
       <div class="aiq-solo-field">
@@ -4457,38 +4483,38 @@ document.getElementById('aiq-race-type').addEventListener('change', (e) => {
   syncAiSportFields(e.target.value);
 });
 
-// ── Question grid (step 1) — card UI driving the hidden <select> ──
-const AIQ_TYPE_META = {
-  '70.3':    { icon:'🚴', label:'70.3 Half-Ironman' },
-  full:      { icon:'🏁', label:'Ironman / Full' },
-  olympic:   { icon:'◆',  label:'Olympic Triathlon' },
-  sprint:    { icon:'⚡', label:'Sprint Triathlon' },
-  '5k':      { icon:'🏃', label:'5K' },
-  '10k':     { icon:'🏃', label:'10K' },
-  half:      { icon:'🏃', label:'Half Marathon' },
-  marathon:  { icon:'🏃', label:'Marathon' },
-  '50k':     { icon:'⛰',  label:'50K Ultra' },
-  custom:    { icon:'✦',  label:'Other / Custom' },
-};
-const AIQ_TYPE_ORDER = ['70.3','full','olympic','sprint','5k','10k','half','marathon','50k','custom'];
+// ── Question grid (step 0) — card UI driving the hidden <select> ──
+const AIQ_TYPE_META = [
+  { value:'70.3',     icon:'🚴', label:'70.3 Half-Ironman' },
+  { value:'full',     icon:'🏁', label:'Ironman / Full' },
+  { value:'olympic',  icon:'◆',  label:'Olympic Triathlon' },
+  { value:'sprint',   icon:'⚡', label:'Sprint Triathlon' },
+  { value:'5k',       icon:'🏃', label:'5K' },
+  { value:'10k',      icon:'🏃', label:'10K' },
+  { value:'half',     icon:'🏃', label:'Half Marathon' },
+  { value:'marathon', icon:'🏃', label:'Marathon' },
+  { value:'50k',      icon:'⛰',  label:'50K Ultra' },
+  { value:'custom',   icon:'✦',  label:'Other / Custom' },
+];
 
-function renderAiqTypeGrid() {
-  const grid = document.getElementById('aiq-type-grid');
-  const sel  = document.getElementById('aiq-race-type');
-  grid.innerHTML = AIQ_TYPE_ORDER.map(id => {
-    const m = AIQ_TYPE_META[id];
-    return `<div class="aiq-type-card${id === sel.value ? ' is-selected' : ''}" data-type="${id}" tabindex="0" role="button" aria-pressed="${id === sel.value}">
+// Shared renderer for every step that's a card grid driving a hidden <select> — race
+// type, experience, and yes/no questions. `meta` is [{value,icon,label}]; `onSelect` runs
+// after the hidden select's value is updated (e.g. to dispatch a 'change' event for listeners).
+function renderAiqCardGrid(selectId, gridId, meta, onSelect) {
+  const sel  = document.getElementById(selectId);
+  const grid = document.getElementById(gridId);
+  grid.innerHTML = meta.map(m => `
+    <div class="aiq-type-card${m.value === sel.value ? ' is-selected' : ''}" data-value="${m.value}" tabindex="0" role="button" aria-pressed="${m.value === sel.value}">
       <span class="aiq-type-icon">${m.icon}</span><span class="aiq-type-label">${esc(m.label)}</span>
-    </div>`;
-  }).join('');
+    </div>`).join('');
   grid.querySelectorAll('.aiq-type-card').forEach(card => {
     card.addEventListener('click', () => {
-      sel.value = card.dataset.type;
-      sel.dispatchEvent(new Event('change'));
+      sel.value = card.dataset.value;
       grid.querySelectorAll('.aiq-type-card').forEach(c => {
         c.classList.toggle('is-selected', c === card);
         c.setAttribute('aria-pressed', c === card);
       });
+      onSelect?.();
     });
     card.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); }
@@ -4503,26 +4529,10 @@ const AIQ_EXPERIENCE_META = [
   { value:'competitive', icon:'🏆', label:'Competitive — races regularly' },
 ];
 
-function renderAiqExperienceGrid() {
-  const grid = document.getElementById('aiq-experience-grid');
-  const sel  = document.getElementById('aiq-experience');
-  grid.innerHTML = AIQ_EXPERIENCE_META.map(m => `
-    <div class="aiq-type-card${m.value === sel.value ? ' is-selected' : ''}" data-value="${m.value}" tabindex="0" role="button" aria-pressed="${m.value === sel.value}">
-      <span class="aiq-type-icon">${m.icon}</span><span class="aiq-type-label">${esc(m.label)}</span>
-    </div>`).join('');
-  grid.querySelectorAll('.aiq-type-card').forEach(card => {
-    card.addEventListener('click', () => {
-      sel.value = card.dataset.value;
-      grid.querySelectorAll('.aiq-type-card').forEach(c => {
-        c.classList.toggle('is-selected', c === card);
-        c.setAttribute('aria-pressed', c === card);
-      });
-    });
-    card.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); }
-    });
-  });
-}
+const AIQ_HIDDEN_EXP_META = [
+  { value:'no',  icon:'➖', label:'No' },
+  { value:'yes', icon:'✅', label:'Yes' },
+];
 
 // Mon..Sun picker driving a hidden <select> — used for both rest day and long-session day.
 function renderAiqDayPicker(selectId, gridId) {
@@ -4609,13 +4619,16 @@ function applyAiqStravaPrefill() {
 }
 
 // ── Wizard state machine ──
-const AIQ_STEP_COUNT     = 15;
-const AIQ_STEP_DISTANCES = 5;
-const AIQ_STEP_RACE_DATE   = 2;
-const AIQ_STEP_TRAIN_START = 3;
+const AIQ_STEP_COUNT          = 18;
+const AIQ_STEP_DISTANCES      = 5;
+const AIQ_STEP_RACE_DATE      = 2;
+const AIQ_STEP_TRAIN_START    = 3;
+const AIQ_STEP_HIDDEN_EXP_DETAIL = 14;
 // Steps that Strava history can answer objectively: current volume (7), days/week (8),
 // rest day (9), long-session day (10). When connected, we skip asking and use the
-// observed values — the athlete sees them confirmed on the review screen instead.
+// observed values instead. Age, weight, and prior (pre-Strava) training history are never
+// in this list — our OAuth scope doesn't expose birthdate or weight, and by definition
+// Strava can't show training that predates the athlete's account.
 const AIQ_STRAVA_ANSWERED_STEPS = [7, 8, 9, 10];
 let aiqStep = 0;
 
@@ -4628,12 +4641,14 @@ function aiqShouldSkipDistancesStep() {
 }
 
 function aiqVisibleSteps() {
-  const skipDistances = aiqShouldSkipDistancesStep();
-  const skipStrava    = !!aiqStravaSuggestions;
+  const skipDistances  = aiqShouldSkipDistancesStep();
+  const skipStrava     = !!aiqStravaSuggestions;
+  const skipHiddenExpDetail = aiqVal('aiq-hidden-exp') !== 'yes';
   const steps = [];
   for (let i = 0; i < AIQ_STEP_COUNT; i++) {
     if (i === AIQ_STEP_DISTANCES && skipDistances) continue;
     if (skipStrava && AIQ_STRAVA_ANSWERED_STEPS.includes(i)) continue;
+    if (i === AIQ_STEP_HIDDEN_EXP_DETAIL && skipHiddenExpDetail) continue;
     steps.push(i);
   }
   return steps;
@@ -4707,8 +4722,10 @@ function openAiBuilder() {
 
   syncAiSportFields(document.getElementById('aiq-race-type').value);
   applyAiqStravaPrefill();
-  renderAiqTypeGrid();
-  renderAiqExperienceGrid();
+  const raceTypeSel = document.getElementById('aiq-race-type');
+  renderAiqCardGrid('aiq-race-type', 'aiq-type-grid', AIQ_TYPE_META, () => raceTypeSel.dispatchEvent(new Event('change')));
+  renderAiqCardGrid('aiq-experience', 'aiq-experience-grid', AIQ_EXPERIENCE_META);
+  renderAiqCardGrid('aiq-hidden-exp', 'aiq-hidden-exp-grid', AIQ_HIDDEN_EXP_META);
   renderAiqDayPicker('aiq-rest-day', 'aiq-rest-day-grid');
   renderAiqDayPicker('aiq-long-day', 'aiq-long-day-grid');
   aiqShowStep(0);
@@ -4760,8 +4777,12 @@ function buildAiQuestionnaireContext() {
   lines.push(`Days available to train per week: ${aiqVal('aiq-days-per-week') || 'unspecified'}`);
   lines.push(`Preferred rest day: ${DOW_FULL[+aiqVal('aiq-rest-day')] ?? 'no preference'}`);
   lines.push(`Preferred long-session day: ${DOW_FULL[+aiqVal('aiq-long-day')] ?? 'no preference'}`);
-  lines.push(`Max weekday session length: ${aiqVal('aiq-weekday-max') || 'unspecified'} minutes`);
-  lines.push(`Max weekend session length: ${aiqVal('aiq-weekend-max') || 'unspecified'} minutes`);
+  lines.push(`Age: ${aiqVal('aiq-age') || 'unspecified'}`);
+  lines.push(`Weight: ${aiqVal('aiq-weight') || 'unspecified'}`);
+  const hiddenExpDetail = aiqVal('aiq-hidden-exp-detail');
+  lines.push(aiqVal('aiq-hidden-exp') === 'yes' && hiddenExpDetail
+    ? `Training history not reflected in Strava: ${hiddenExpDetail}`
+    : `Training history not reflected in Strava: none reported`);
   const injuries = aiqVal('aiq-injuries');
   if (injuries) lines.push(`Injuries / limitations: ${injuries}`);
   const notes = aiqVal('aiq-notes');
@@ -4936,6 +4957,10 @@ INJURY/LIMITATION HANDLING:
 - Reduce or substitute affected sport, not just cut sessions randomly. If athlete can't run: substitute easy bike or swim of similar duration.
 - Never keep a full volume of a sport the athlete has flagged as injured — show visible modification.
 
+ATHLETE BACKGROUND:
+- Age: older athletes generally need more recovery between hard sessions and longer warm-ups — bias toward an extra easy day or slightly longer recovery weeks for athletes over ~45, all else equal.
+- Prior training history not reflected in Strava (e.g. a swimming or gym background predating their Strava account): treat as raising their true base fitness in that discipline above what recent Strava volume alone would suggest, but still build up touch/specificity gradually since it may be years out of practice.
+
 Now use the athlete's questionnaire to design their plan. Apply all of the above. Respond ONLY with a single valid JSON object — no markdown formatting, no commentary before or after — matching exactly this schema:
 
 {"raceName":"string","raceDate":"YYYY-MM-DD","raceDuration":integer minutes (goal finish time),"raceDistances":{"swim":"e.g. '1.9 km' or ''","bike":"e.g. '90 km' or ''","run":"e.g. '21.1 km' or ''"},"trainStart":"YYYY-MM-DD","phases":[{"name":"string","weeks":integer >= 1,"hrs":"string e.g. '5–7 hrs/wk'","color":"#RRGGBB","focus":"one sentence describing this phase's training emphasis","recoveryEvery":integer >= 0 (0 = no recovery weeks; N = every Nth week uses recoveryTemplate),"template":[[type,label,durationMinutes], ... exactly 7 entries Mon–Sun],"recoveryTemplate":same shape as template or null if recoveryEvery is 0}],"raceEvents":[{"date":"YYYY-MM-DD","label":"string","duration":integer minutes,"weekTemplate":same shape as template or null}]}
@@ -4946,7 +4971,7 @@ Hard constraints:
 - phases[].weeks must sum to approximately {totalWeeks} (athlete's full training window). The final phase is auto-stretched or compressed to land on race day exactly, so ±1–2 weeks is fine.
 - Use 3–6 phases. Short timelines (<10 weeks) may use 2–3. The final phase must always be the taper with recoveryEvery: 0 and clearly reduced volume.
 - Gradually increase weekly volume across phases, respecting the athlete's stated current volume as the starting point.
-- Respect training days/week, preferred rest day, preferred long-session day, and max session lengths (weekday vs. weekend).
+- Respect training days/week, preferred rest day, and preferred long-session day.
 - raceEvents: only include tune-up races the athlete explicitly mentioned. Each must be strictly between trainStart and raceDate. Set "weekTemplate" to a reduced-volume week with a "race" session on that day, or null to use the phase's normal template. Empty array if none mentioned.
 - raceDistances: fill swim/bike/run only for triathlon-type races. Use "" for legs that don't apply.
 - Phase colors: progress from a brighter/cooler tone in early phases to a warmer/darker tone near race day (e.g. use variations of "#3B82F6","#10B981","#F59E0B","#F97316","#EF4444","#7C3AED" — pick a subset appropriate to the number of phases).
