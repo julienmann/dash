@@ -3824,9 +3824,13 @@ function renderBuilderChooser() {
   document.getElementById('chooser-edit').addEventListener('click', openBuilderEdit);
 }
 
+// Remembered so the pro-plan questionnaire's "Back" can return to the right create screen.
+let gBuilderShowBack = true;
+
 // showBack=false for a brand-new account with no plan yet — there's no chooser
 // (and no existing plan) to go back to, so the create flow is the only option.
 function openBuilderCreate(showBack = true) {
+  gBuilderShowBack = showBack;
   document.getElementById('builder-actions').classList.add('hidden');
   document.getElementById('builder-body').innerHTML = `
     <div class="builder-card">
@@ -3893,7 +3897,7 @@ function wireProPlanList() {
   document.querySelectorAll('[data-load-pro]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      applyProPlan(btn.dataset.loadPro);
+      openProPlanQuestions(btn.dataset.loadPro);
     });
   });
 }
@@ -4402,25 +4406,51 @@ const PRO_SPECS = {
 
 const PRO_ORDER = ['frodeno', 'blummenfelt', 'iden', 'lange', 'sodaro', 'kipchoge', 'ingebrigtsen', 'kiptum', 'hassan', 'bekele'];
 
-// Expand a pro-plan spec into a full plan object rooted at today (matching DEFAULT_PLAN's shape).
-function buildProPlan(id) {
+// Nudges how much of the window goes to base-building versus everything after it —
+// newer athletes get a longer on-ramp, competitive athletes spend more time at
+// race-specific intensity. Borrows/lends weeks between the first two phases only,
+// bounded so neither phase drops below 1 week.
+const PRO_EXPERIENCE_BASE_SHIFT = { new: 2, some: 0, experienced: -1, competitive: -2 };
+
+// Builds a pro-plan spec into a full plan object from the athlete's own answers
+// (race name, race date, training start, experience), scaling phase lengths to fit
+// their actual training window while preserving the spec's base/build/peak/taper mix.
+function buildProPlanFromAnswers(id, answers) {
   const spec = PRO_SPECS[id];
   if (!spec) return null;
-  const totalWeeks = spec.phases.reduce((s, p) => s + p.weeks, 0);
+  const specWeeks   = spec.phases.reduce((s, p) => s + p.weeks, 0);
+  const availWeeks  = Math.max(spec.phases.length, Math.round(daysBetween(answers.trainStart, answers.raceDate) / 7));
+  const phases = JSON.parse(JSON.stringify(spec.phases)).map(p => ({
+    ...p, weeks: Math.max(1, Math.round(p.weeks * availWeeks / specWeeks)),
+  }));
+  // Rounding can leave the total a week or two off — correct it on the longest phase.
+  const drift = availWeeks - phases.reduce((s, p) => s + p.weeks, 0);
+  if (drift !== 0) {
+    const idx = phases.reduce((best, p, i) => p.weeks > phases[best].weeks ? i : best, 0);
+    phases[idx].weeks = Math.max(1, phases[idx].weeks + drift);
+  }
+  const shift = PRO_EXPERIENCE_BASE_SHIFT[answers.experience] || 0;
+  if (shift !== 0 && phases.length >= 2) {
+    const donorIdx  = shift > 0 ? 1 : 0;
+    const targetIdx = shift > 0 ? 0 : 1;
+    const amount = Math.min(Math.abs(shift), phases[donorIdx].weeks - 1);
+    phases[donorIdx].weeks  -= amount;
+    phases[targetIdx].weeks += amount;
+  }
   return {
-    raceName: spec.raceName,
-    raceDate: trnDateStr(addDays(today, totalWeeks * 7)),
+    raceName: answers.raceName || spec.raceName,
+    raceDate: answers.raceDate,
     raceDuration: spec.raceDuration,
     raceDistances: { ...spec.raceDistances },
-    trainStart: trnDateStr(today),
-    phases: JSON.parse(JSON.stringify(spec.phases)),
+    trainStart: answers.trainStart,
+    phases,
     raceEvents: [],
   };
 }
 
 // Load a pro plan into the draft and re-render the builder so the user can review/tweak it.
-function applyProPlan(id) {
-  const plan = buildProPlan(id);
+function applyProPlan(id, answers) {
+  const plan = buildProPlanFromAnswers(id, answers);
   if (!plan) { toast('That plan could not be loaded.', { error: true }); return; }
   if (isDraftDirty() && !confirm('Replace your current edits with this plan? Unsaved changes will be lost.')) return;
   DRAFT_PLAN = plan;
@@ -4429,6 +4459,55 @@ function applyProPlan(id) {
   document.getElementById('builder-actions').classList.remove('hidden');
   renderPlanBuilderSimple();
   window.scrollTo(0, 0);
+}
+
+// A few quick questions before loading a pro plan, so it's actually fit to the
+// athlete's race and schedule rather than dropped in with default dates.
+function openProPlanQuestions(id) {
+  const spec = PRO_SPECS[id];
+  if (!spec) { toast('That plan could not be loaded.', { error: true }); return; }
+  const totalWeeks        = spec.phases.reduce((s, p) => s + p.weeks, 0);
+  const defaultRaceDate   = trnDateStr(addDays(today, totalWeeks * 7));
+  const defaultTrainStart = trnDateStr(today);
+  document.getElementById('builder-actions').classList.add('hidden');
+  document.getElementById('builder-body').innerHTML = `
+    <div class="builder-card">
+      <div class="builder-card-title">${esc(spec.label)}</div>
+      <p class="builder-section-sub">A few quick questions to fit this plan to your race and schedule.</p>
+      <div class="builder-grid">
+        <div class="form-group"><label class="form-label">Race name</label>
+          <input class="form-input" type="text" id="pro-q-race-name" value="${esc(spec.raceName)}"></div>
+        <div class="form-group"><label class="form-label">Race date</label>
+          <input class="form-input" type="date" id="pro-q-race-date" value="${defaultRaceDate}"></div>
+        <div class="form-group"><label class="form-label">Training start</label>
+          <input class="form-input" type="date" id="pro-q-train-start" value="${defaultTrainStart}"></div>
+        <div class="form-group"><label class="form-label">Training background</label>
+          <select class="form-input" id="pro-q-experience">
+            <option value="new">New to structured training</option>
+            <option value="some" selected>Some experience (a season or two)</option>
+            <option value="experienced">Experienced (multiple seasons)</option>
+            <option value="competitive">Competitive / race regularly</option>
+          </select></div>
+      </div>
+      <div class="builder-error hidden" id="pro-q-error"></div>
+      <div class="builder-actions" style="padding:.5rem 0 0;">
+        <button class="builder-btn builder-btn-secondary" id="pro-q-back" type="button">← Back</button>
+        <button class="builder-btn builder-btn-primary" id="pro-q-submit" type="button">Generate plan</button>
+      </div>
+    </div>`;
+  document.getElementById('pro-q-back').addEventListener('click', () => openBuilderCreate(gBuilderShowBack));
+  document.getElementById('pro-q-submit').addEventListener('click', () => {
+    const raceName   = document.getElementById('pro-q-race-name').value.trim();
+    const raceDate   = document.getElementById('pro-q-race-date').value;
+    const trainStart = document.getElementById('pro-q-train-start').value;
+    const experience = document.getElementById('pro-q-experience').value;
+    const errEl = document.getElementById('pro-q-error');
+    const showErr = msg => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
+    if (!raceName) return showErr('Please enter a race name.');
+    if (!DATE_RE.test(raceDate) || !DATE_RE.test(trainStart)) return showErr('Please choose valid dates.');
+    if (raceDate <= trainStart) return showErr('Race date must be after the training start date.');
+    applyProPlan(id, { raceName, raceDate, trainStart, experience });
+  });
 }
 
 // ════════════════════════════════════════════
