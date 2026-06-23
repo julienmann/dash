@@ -1295,9 +1295,11 @@ async function pushPlanToServer(plan) {
 
 // Pulls the server-synced plan (if any) before first render, so a returning
 // logged-in user sees the same plan on any device instead of this browser's copy.
-// A null plan (account exists server-side but never saved one) is left alone here —
-// the boot sequence below treats "nothing in localStorage yet" as the single signal
-// that plan creation must be forced, covering both account and Strava-only new users.
+// A null plan (account reset, or never saved one) clears any locally-cached plan too —
+// otherwise a server-side reset wouldn't be visible on a browser that already has a
+// cached copy. The boot sequence below then treats "nothing in localStorage" as the
+// single signal that plan creation must be forced, covering both account and
+// Strava-only new users.
 async function pullPlanFromServer() {
   const session = getSession();
   if (!session) return;
@@ -1305,7 +1307,11 @@ async function pullPlanFromServer() {
     const res  = await fetch(WORKER_URL + '/plan', { headers: { 'Authorization': 'Bearer ' + session.token } });
     if (res.status === 401) { clearSession(); renderAccountUI?.(); toast('Your session expired. Log in again to sync across devices.', { error: true, duration: 5000 }); return; }
     const data = await res.json();
-    if (data.plan && JSON.stringify(data.plan) !== localStorage.getItem(PLAN_KEY)) {
+    if (data.plan === null && localStorage.getItem(PLAN_KEY) !== null) {
+      localStorage.removeItem(PLAN_KEY);
+      localStorage.removeItem(AI_OPT_KEY);
+      window.location.reload();
+    } else if (data.plan && JSON.stringify(data.plan) !== localStorage.getItem(PLAN_KEY)) {
       localStorage.setItem(PLAN_KEY, JSON.stringify(data.plan));
       window.location.reload();
     }
