@@ -1243,6 +1243,62 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       <button class="builder-btn builder-btn-primary" id="aiq-nav-next" type="button">Next →</button>
     </div>
   </div>
+
+  <!-- Pro-plan questionnaire — same one-question-at-a-time format as the AI builder,
+       just four quick questions before the spec is scaled to fit them. -->
+  <div id="pro-q-body" class="hidden">
+    <div class="aiq-progress">
+      <span class="aiq-progress-label" id="pro-q-progress-label">Question 1 of 4</span>
+      <div class="aiq-progress-bar"><div class="aiq-progress-fill" id="pro-q-progress-fill" style="width:25%"></div></div>
+    </div>
+
+    <select class="form-input hidden" id="pro-q-experience">
+      <option value="new">New to structured training</option>
+      <option value="some" selected>Some experience (a season or two)</option>
+      <option value="experienced">Experienced (multiple seasons)</option>
+      <option value="competitive">Competitive / race regularly</option>
+    </select>
+
+    <!-- Step 0 — race name -->
+    <div class="aiq-step-card aiq-step" data-step="0">
+      <div class="aiq-step-title">What's this race called?</div>
+      <p class="aiq-step-sub">Just a label for your plan — don't worry about getting it exact.</p>
+      <div class="aiq-solo-field">
+        <input class="form-input aiq-big-input" type="text" id="pro-q-race-name" placeholder="e.g. Mont-Tremblant 70.3">
+      </div>
+    </div>
+
+    <!-- Step 1 — race date -->
+    <div class="aiq-step-card aiq-step hidden" data-step="1">
+      <div class="aiq-step-title">When's race day?</div>
+      <p class="aiq-step-sub">Everything else builds backward from this date.</p>
+      <div class="aiq-solo-field">
+        <input class="form-input aiq-big-input" type="date" id="pro-q-race-date">
+      </div>
+    </div>
+
+    <!-- Step 2 — training start -->
+    <div class="aiq-step-card aiq-step hidden" data-step="2">
+      <div class="aiq-step-title">When do you want to start training?</div>
+      <p class="aiq-step-sub">Usually today — push it out if you're easing in first.</p>
+      <div class="aiq-solo-field">
+        <input class="form-input aiq-big-input" type="date" id="pro-q-train-start">
+      </div>
+    </div>
+
+    <!-- Step 3 — experience -->
+    <div class="aiq-step-card aiq-step hidden" data-step="3">
+      <div class="aiq-step-title">What's your training background?</div>
+      <p class="aiq-step-sub">Sets how much of the plan goes to base-building versus race-specific work.</p>
+      <div class="aiq-type-grid" id="pro-q-experience-grid"></div>
+    </div>
+
+    <div id="pro-q-error" class="builder-error hidden" role="alert"></div>
+    <div class="aiq-nav">
+      <button class="builder-btn builder-btn-secondary" id="pro-q-nav-back" type="button">Back</button>
+      <button class="builder-btn builder-btn-primary" id="pro-q-nav-next" type="button">Next →</button>
+    </div>
+  </div>
 </main>
 
 <!-- ── Day detail popup ── -->
@@ -3806,6 +3862,7 @@ function openPlanBuilder() {
   DRAFT_BASELINE = null;
   document.getElementById('builder-error').classList.add('hidden');
   document.getElementById('ai-builder-body').classList.add('hidden');
+  document.getElementById('pro-q-body').classList.add('hidden');
   document.getElementById('plan-builder').classList.remove('hidden');
   document.getElementById('builder-actions').classList.add('hidden');
   renderBuilderChooser();
@@ -3917,6 +3974,7 @@ function forceCreatePlan() {
   BUILDER_VIEWS.forEach(id => document.getElementById(id).classList.add('hidden'));
   document.getElementById('builder-error').classList.add('hidden');
   document.getElementById('ai-builder-body').classList.add('hidden');
+  document.getElementById('pro-q-body').classList.add('hidden');
   document.getElementById('plan-builder').classList.remove('hidden');
   document.getElementById('builder-cancel-top').classList.add('hidden');
   document.getElementById('builder-cancel').classList.add('hidden');
@@ -4467,54 +4525,89 @@ function applyProPlan(id, answers) {
   window.scrollTo(0, 0);
 }
 
+// Pro-plan questionnaire — same one-question-at-a-time wizard format as the AI
+// builder (own state, since it's a separate 4-step flow from the AI questionnaire).
+const PRO_Q_STEP_COUNT = 4;
+let proQStep      = 0;
+let proQAthleteId = null;
+
 // A few quick questions before loading a pro plan, so it's actually fit to the
 // athlete's race and schedule rather than dropped in with default dates.
 function openProPlanQuestions(id) {
   const spec = PRO_SPECS[id];
   if (!spec) { toast('That plan could not be loaded.', { error: true }); return; }
-  const totalWeeks        = spec.phases.reduce((s, p) => s + p.weeks, 0);
-  const defaultRaceDate   = trnDateStr(addDays(today, totalWeeks * 7));
-  const defaultTrainStart = trnDateStr(today);
+  proQAthleteId = id;
+  document.getElementById('builder-body').classList.add('hidden');
   document.getElementById('builder-actions').classList.add('hidden');
-  document.getElementById('builder-body').innerHTML = `
-    <div class="builder-card">
-      <div class="builder-card-title">${esc(spec.label)}</div>
-      <p class="builder-section-sub">A few quick questions to fit this plan to your race and schedule.</p>
-      <div class="builder-grid">
-        <div class="form-group"><label class="form-label">Race name</label>
-          <input class="form-input" type="text" id="pro-q-race-name" value="${esc(spec.raceName)}"></div>
-        <div class="form-group"><label class="form-label">Race date</label>
-          <input class="form-input" type="date" id="pro-q-race-date" value="${defaultRaceDate}"></div>
-        <div class="form-group"><label class="form-label">Training start</label>
-          <input class="form-input" type="date" id="pro-q-train-start" value="${defaultTrainStart}"></div>
-        <div class="form-group"><label class="form-label">Training background</label>
-          <select class="form-input" id="pro-q-experience">
-            <option value="new">New to structured training</option>
-            <option value="some" selected>Some experience (a season or two)</option>
-            <option value="experienced">Experienced (multiple seasons)</option>
-            <option value="competitive">Competitive / race regularly</option>
-          </select></div>
-      </div>
-      <div class="builder-error hidden" id="pro-q-error"></div>
-      <div class="builder-actions" style="padding:.5rem 0 0;">
-        <button class="builder-btn builder-btn-secondary" id="pro-q-back" type="button">← Back</button>
-        <button class="builder-btn builder-btn-primary" id="pro-q-submit" type="button">Generate plan</button>
-      </div>
-    </div>`;
-  document.getElementById('pro-q-back').addEventListener('click', () => openBuilderCreate(gBuilderShowBack));
-  document.getElementById('pro-q-submit').addEventListener('click', () => {
-    const raceName   = document.getElementById('pro-q-race-name').value.trim();
-    const raceDate   = document.getElementById('pro-q-race-date').value;
-    const trainStart = document.getElementById('pro-q-train-start').value;
-    const experience = document.getElementById('pro-q-experience').value;
-    const errEl = document.getElementById('pro-q-error');
-    const showErr = msg => { errEl.textContent = msg; errEl.classList.remove('hidden'); };
-    if (!raceName) return showErr('Please enter a race name.');
-    if (!DATE_RE.test(raceDate) || !DATE_RE.test(trainStart)) return showErr('Please choose valid dates.');
-    if (raceDate <= trainStart) return showErr('Race date must be after the training start date.');
-    applyProPlan(id, { raceName, raceDate, trainStart, experience });
-  });
+  document.getElementById('pro-q-body').classList.remove('hidden');
+
+  const totalWeeks = spec.phases.reduce((s, p) => s + p.weeks, 0);
+  document.getElementById('pro-q-race-name').value   = spec.raceName;
+  document.getElementById('pro-q-race-date').value   = trnDateStr(addDays(today, totalWeeks * 7));
+  document.getElementById('pro-q-train-start').value = trnDateStr(today);
+  document.getElementById('pro-q-experience').value  = 'some';
+  renderAiqCardGrid('pro-q-experience', 'pro-q-experience-grid', AIQ_EXPERIENCE_META);
+  proQShowStep(0);
 }
+
+function closeProPlanQuestions() {
+  document.getElementById('pro-q-body').classList.add('hidden');
+  document.getElementById('builder-body').classList.remove('hidden');
+  openBuilderCreate(gBuilderShowBack);
+}
+
+function proQShowStep(n) {
+  proQStep = Math.max(0, Math.min(PRO_Q_STEP_COUNT - 1, n));
+  document.querySelectorAll('#pro-q-body .aiq-step').forEach(el => {
+    el.classList.toggle('hidden', +el.dataset.step !== proQStep);
+  });
+  document.getElementById('pro-q-progress-label').textContent = `Question ${proQStep + 1} of ${PRO_Q_STEP_COUNT}`;
+  document.getElementById('pro-q-progress-fill').style.width = `${((proQStep + 1) / PRO_Q_STEP_COUNT) * 100}%`;
+  document.getElementById('pro-q-nav-back').textContent = proQStep === 0 ? 'Cancel' : '← Back';
+  document.getElementById('pro-q-error').classList.add('hidden');
+  document.getElementById('pro-q-nav-next').textContent = proQStep === PRO_Q_STEP_COUNT - 1 ? '✦ Load plan' : 'Next →';
+  window.scrollTo(0, 0);
+}
+
+function proQShowErr(msg) {
+  const errEl = document.getElementById('pro-q-error');
+  errEl.textContent = msg;
+  errEl.classList.remove('hidden');
+}
+
+function proQValidateStep() {
+  if (proQStep === 0 && !document.getElementById('pro-q-race-name').value.trim()) {
+    proQShowErr('Please enter a race name.'); return false;
+  }
+  if (proQStep === 1 && !DATE_RE.test(document.getElementById('pro-q-race-date').value)) {
+    proQShowErr('Please choose a race date.'); return false;
+  }
+  if (proQStep === 2) {
+    const trainStart = document.getElementById('pro-q-train-start').value;
+    const raceDate   = document.getElementById('pro-q-race-date').value;
+    if (!DATE_RE.test(trainStart)) { proQShowErr('Please choose a training start date.'); return false; }
+    if (raceDate <= trainStart) { proQShowErr('Training start date must be before the race date.'); return false; }
+  }
+  return true;
+}
+
+document.getElementById('pro-q-nav-back').addEventListener('click', () => {
+  if (proQStep === 0) { closeProPlanQuestions(); return; }
+  proQShowStep(proQStep - 1);
+});
+
+document.getElementById('pro-q-nav-next').addEventListener('click', () => {
+  if (!proQValidateStep()) return;
+  if (proQStep < PRO_Q_STEP_COUNT - 1) { proQShowStep(proQStep + 1); return; }
+  document.getElementById('pro-q-body').classList.add('hidden');
+  document.getElementById('builder-body').classList.remove('hidden');
+  applyProPlan(proQAthleteId, {
+    raceName:   document.getElementById('pro-q-race-name').value.trim(),
+    raceDate:   document.getElementById('pro-q-race-date').value,
+    trainStart: document.getElementById('pro-q-train-start').value,
+    experience: document.getElementById('pro-q-experience').value,
+  });
+});
 
 // ════════════════════════════════════════════
 //  AI PLAN BUILDER — questionnaire → generated plan
