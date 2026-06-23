@@ -51,7 +51,11 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 
 /* ── TOPNAV ── */
 .topnav{background:var(--card);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:200;}
-.topnav-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:48px;gap:1rem;}
+/* margin-left:auto on .topnav-right (not justify-content:space-between) pins the right
+   group — and the account button inside it — to the right edge even when nav-home is
+   hidden (e.g. the forced create-plan screen): space-between collapses to flex-start
+   with only one visible child, which would otherwise leave it stranded on the left. */
+.topnav-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;align-items:center;height:48px;gap:1rem;}
 .topnav-back{font-size:.75rem;font-weight:500;color:var(--mid);display:flex;align-items:center;gap:.3rem;transition:color .15s;flex-shrink:0;background:none;border:none;cursor:pointer;padding:0;}
 .topnav-back:hover{color:var(--fg);}
 .topnav-links{display:flex;align-items:center;gap:.75rem;flex-shrink:1;min-width:0;}
@@ -59,7 +63,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .topnav-link.active,.topnav-back.active{color:var(--orange-strong);background:var(--orange-dim);font-weight:600;}
 .topnav-link:hover{color:var(--fg);background:var(--bg);}
 .topnav-race{font-size:.72rem;font-weight:700;color:var(--orange-strong);letter-spacing:.015em;}
-.topnav-right{display:flex;align-items:center;gap:.75rem;flex-shrink:0;}
+.topnav-right{display:flex;align-items:center;gap:.75rem;flex-shrink:0;margin-left:auto;}
 .topnav-alltime{font-size:.7rem;color:var(--mid);white-space:nowrap;}
 .account-wrap{position:relative;display:flex;flex-shrink:0;}
 .account-icon-btn{
