@@ -635,6 +635,13 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 /* Entry CTAs (Load preset / Start AI) start a flow, so they use a solid border —
    the dashed style stays reserved for "+ Add" placeholder actions. */
 .builder-cta-btn{border-style:solid;margin-bottom:0;}
+.pro-plan-section-hdr{display:flex;align-items:center;gap:.6rem;width:100%;text-align:left;}
+.pro-plan-section-title{flex:1;font-size:.85rem;font-weight:700;color:var(--fg);}
+.pro-plan-section-hint{font-size:.74rem;color:var(--mid);margin-top:.15rem;}
+.pro-plan-section-body{max-height:0;overflow:hidden;transition:max-height .25s ease;}
+.pro-plan-section.open .pro-plan-section-body{max-height:3000px;}
+.pro-plan-section.open .pro-plan-section-hdr .pro-plan-item-chev{transform:rotate(90deg);}
+.pro-plan-section-body-inner{padding-top:.9rem;}
 .pro-plan-group-label{font-size:.68rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--mid);margin:.9rem 0 .4rem;}
 .pro-plan-group-label:first-child{margin-top:0;}
 .pro-plan-list{border:1.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:.3rem;}
@@ -3774,20 +3781,35 @@ function openBuilderCreate(showBack = true) {
   document.getElementById('builder-actions').classList.add('hidden');
   document.getElementById('builder-body').innerHTML = `
     <div class="builder-card">
-      <div class="builder-card-title">Load a pro athlete's plan</div>
-      <p class="builder-section-sub">Pick a plan modeled on a pro runner or Ironman champion's training balance — scaled to an amateur-realistic week. It starts today and runs through to race day. Tap an athlete to see what makes their method different.</p>
-      <div class="pro-plan-group-label">Ironman triathletes</div>
-      <div class="pro-plan-list">${PRO_ORDER.filter(id => PRO_SPECS[id].group === 'tri').map(proPlanItemHtml).join('')}</div>
-      <div class="pro-plan-group-label">Pro runners</div>
-      <div class="pro-plan-list">${PRO_ORDER.filter(id => PRO_SPECS[id].group === 'run').map(proPlanItemHtml).join('')}</div>
-    </div>
-    <div class="builder-card">
       <div class="builder-card-title">✦ Build a plan with AI</div>
       <p class="builder-section-sub">Answer a few questions about your race, schedule, and fitness, and AI will draft a complete periodized plan.</p>
       <button class="builder-add-btn builder-cta-btn" id="open-ai-builder-btn" type="button">Start AI questionnaire</button>
     </div>
+    <div class="builder-card pro-plan-section" id="pro-plan-section">
+      <button class="pro-plan-section-hdr" type="button" id="pro-plan-section-toggle" aria-expanded="false">
+        <span>
+          <span class="pro-plan-section-title">Or load a pro athlete's plan</span>
+          <div class="pro-plan-section-hint">Modeled on a pro runner or Ironman champion's training balance, scaled to an amateur-realistic week.</div>
+        </span>
+        <span class="pro-plan-item-chev">▶</span>
+      </button>
+      <div class="pro-plan-section-body">
+        <div class="pro-plan-section-body-inner">
+          <p class="builder-section-sub">It starts today and runs through to race day. Tap an athlete to see what makes their method different.</p>
+          <div class="pro-plan-group-label">Ironman triathletes</div>
+          <div class="pro-plan-list">${PRO_ORDER.filter(id => PRO_SPECS[id].group === 'tri').map(proPlanItemHtml).join('')}</div>
+          <div class="pro-plan-group-label">Pro runners</div>
+          <div class="pro-plan-list">${PRO_ORDER.filter(id => PRO_SPECS[id].group === 'run').map(proPlanItemHtml).join('')}</div>
+        </div>
+      </div>
+    </div>
     ${showBack ? `<button class="builder-btn builder-btn-secondary" id="builder-back-chooser" type="button" style="margin-top:.5rem;">← Back</button>` : ''}`;
   document.getElementById('open-ai-builder-btn').addEventListener('click', openAiBuilder);
+  document.getElementById('pro-plan-section-toggle').addEventListener('click', () => {
+    const section = document.getElementById('pro-plan-section');
+    const isOpen = section.classList.toggle('open');
+    document.getElementById('pro-plan-section-toggle').setAttribute('aria-expanded', String(isOpen));
+  });
   wireProPlanList();
   if (showBack) document.getElementById('builder-back-chooser').addEventListener('click', renderBuilderChooser);
 }
