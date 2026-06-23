@@ -736,15 +736,15 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 }
 </style>
 <script>
-// Auth gate: require an account session or a Strava connection before showing the dashboard.
-// Keys mirror SESSION_KEY ('jm_session_v1') and STORAGE_KEY ('jm_strava_v1') in the main script.
+// Auth gate: require an account before showing the dashboard. A Strava connection
+// alone is no longer enough — Strava can only be connected from inside the dashboard
+// (the strava-setup screen), which by definition requires having passed this gate
+// already, so a code/error mid-OAuth callback always has a session by the time it lands.
+// Key mirrors SESSION_KEY ('jm_session_v1') in the main script.
 (function () {
   try {
-    var p = new URLSearchParams(window.location.search);
-    if (p.has('code') || p.has('error')) return;   // mid OAuth callback, token not saved yet
     var hasSession = !!localStorage.getItem('jm_session_v1');
-    var hasStrava  = !!localStorage.getItem('jm_strava_v1');
-    if (!hasSession && !hasStrava) window.location.replace('/');
+    if (!hasSession) window.location.replace('/');
   } catch (e) {}
 })();
 </script>
