@@ -62,6 +62,8 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .topnav-link{font-size:.75rem;font-weight:500;color:var(--mid);padding:.42rem .7rem;border-radius:5px;transition:color .15s,background .15s;white-space:nowrap;}
 .topnav-link.active,.topnav-back.active{color:var(--orange-strong);background:var(--orange-dim);font-weight:600;}
 .topnav-link:hover{color:var(--fg);background:var(--bg);}
+.topnav-cta-btn{font-size:.75rem;font-weight:700;color:#fff;background:var(--orange-strong);padding:.42rem .85rem;border-radius:6px;white-space:nowrap;border:none;transition:opacity .15s;}
+.topnav-cta-btn:hover{opacity:.88;}
 .topnav-race{font-size:.72rem;font-weight:700;color:var(--orange-strong);letter-spacing:.015em;}
 .topnav-right{display:flex;align-items:center;gap:.75rem;flex-shrink:0;margin-left:auto;}
 .topnav-alltime{font-size:.7rem;color:var(--mid);white-space:nowrap;}
@@ -348,8 +350,6 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .section-divider{border-top:1px solid var(--border);}
 .section-sep{display:flex;align-items:center;justify-content:space-between;padding:1.5rem 0 .5rem;}
 .section-sep-label{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);}
-.strava-disconnect{font-size:.73rem;font-weight:500;color:var(--mid);padding:.28rem .65rem;border:1.5px solid var(--border);border-radius:5px;transition:all .15s;}
-.strava-disconnect:hover{border-color:var(--fg);color:var(--fg);}
 
 /* ══════════════════════════════════════════
    STRAVA CONNECT CARD
@@ -725,6 +725,7 @@ footer{border-top:1px solid var(--border);background:var(--card);}
   /* Collapse the inline nav links into a wrap-friendly row instead of hiding them outright. */
   .topnav-links{display:flex;flex-wrap:wrap;gap:.2rem;justify-content:flex-end;}
   .topnav-link{font-size:.72rem;padding:.4rem .55rem;}
+  .topnav-cta-btn{font-size:.72rem;padding:.4rem .65rem;}
 }
 /* ── Toasts (quiet, transient feedback — no badges, no gamification) ── */
 .toast-wrap{position:fixed;top:.9rem;right:.9rem;z-index:1000;display:flex;flex-direction:column;gap:.5rem;max-width:min(20rem,calc(100vw - 1.8rem));pointer-events:none;}
@@ -762,7 +763,7 @@ footer{border-top:1px solid var(--border);background:var(--card);}
     <div class="topnav-right">
       <div class="topnav-links">
         <button class="topnav-link" id="edit-plan-btn" type="button">Edit Plan</button>
-        <button class="topnav-link hidden" id="nav-connect" type="button">Connect Strava</button>
+        <button class="topnav-cta-btn hidden" id="nav-connect" type="button">Connect Strava</button>
         <span class="topnav-alltime hidden" id="topnav-alltime"></span>
         <span class="topnav-race" id="nav-race"></span>
       </div>
@@ -2680,11 +2681,7 @@ function showStravaContent() {
   document.getElementById('strava-content').classList.remove('hidden');
   document.getElementById('training').classList.remove('hidden');
   document.getElementById('nav-connect').classList.add('hidden');
-  document.getElementById('strava-topbar').innerHTML =
-    `<button class="strava-disconnect" id="disconnect-btn">Disconnect</button>`;
-  document.getElementById('disconnect-btn').addEventListener('click', () => {
-    if (confirm('Disconnect Strava and clear saved tokens?')) { clearCfg(); window.location.replace(window.location.pathname); }
-  });
+  document.getElementById('strava-topbar').innerHTML = '';
 }
 
 // ── OAuth ────────────────────────────────────────────────────────
@@ -5295,9 +5292,13 @@ function renderAccountDropdown() {
   const dropdown  = document.getElementById('account-dropdown');
   const session   = getSession();
   const stravaCfg = getCfg();
+  const stravaConnected = !!(gAthlete || stravaCfg?.access_token);
   const stravaStatus = gAthlete
     ? `Strava: connected as ${esc(gAthlete.firstname || '')} ${esc(gAthlete.lastname || '')}`.trim()
-    : (stravaCfg?.access_token ? 'Strava: connected' : 'Strava: not connected');
+    : (stravaConnected ? 'Strava: connected' : 'Strava: not connected');
+  const stravaAction = stravaConnected
+    ? `<button class="account-dropdown-action" id="disconnect-strava-btn" type="button">Disconnect from Strava</button>`
+    : '';
 
   if (session) {
     dropdown.innerHTML = `
@@ -5305,6 +5306,7 @@ function renderAccountDropdown() {
       <div class="account-dropdown-email">${esc(session.email)}</div>
       <div class="account-dropdown-meta" id="account-meta">Synced across devices</div>
       <div class="account-dropdown-meta">${stravaStatus}</div>
+      ${stravaAction}
       <div class="account-dropdown-divider"></div>
       <button class="account-dropdown-action" id="logout-btn" type="button">Log out</button>
       <button class="account-dropdown-action danger" id="delete-account-btn" type="button">Delete account</button>
@@ -5316,6 +5318,10 @@ function renderAccountDropdown() {
     document.getElementById('delete-account-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       renderDeleteAccountConfirm(session);
+    });
+    document.getElementById('disconnect-strava-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (confirm('Disconnect Strava and clear saved tokens?')) { clearCfg(); window.location.replace(window.location.pathname); }
     });
     fetch(WORKER_URL + '/account', { headers: { 'Authorization': 'Bearer ' + session.token } })
       .then(res => res.ok ? res.json() : null)
@@ -5332,8 +5338,13 @@ function renderAccountDropdown() {
       <div class="account-dropdown-label">Account</div>
       <div class="account-dropdown-meta">Not signed in — your plan is saved in this browser only.</div>
       <div class="account-dropdown-meta">${stravaStatus}</div>
+      ${stravaAction}
       <a class="account-dropdown-action" href="/">Create account or log in →</a>
     `;
+    document.getElementById('disconnect-strava-btn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (confirm('Disconnect Strava and clear saved tokens?')) { clearCfg(); window.location.replace(window.location.pathname); }
+    });
   }
 }
 
