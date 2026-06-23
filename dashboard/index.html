@@ -3670,7 +3670,11 @@ document.getElementById('nav-home').addEventListener('click', () => {
   getCfg()?.access_token ? showStravaContent() : showPlannerOnly();
 });
 document.getElementById('start-planning-btn').addEventListener('click', showPlannerOnly);
-document.getElementById('nav-connect').addEventListener('click', showStravaSetup);
+// Go straight to the Strava OAuth page — no intermediate "Connect with Strava" screen.
+document.getElementById('nav-connect').addEventListener('click', () => {
+  if (!STRAVA_CLIENT_ID || !WORKER_URL) { showStravaSetup(); return; }
+  startOAuth();
+});
 
 document.getElementById('setup-btn').addEventListener('click', () => {
   const err = document.getElementById('setup-error');
