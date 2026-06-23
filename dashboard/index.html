@@ -1976,7 +1976,7 @@ function aiModelCandidates(fallbacks) {
 // POST to the worker /ai proxy, trying each candidate model in turn. Advances to the
 // next model only on a 404 (model unavailable); persists the first one that works.
 // Returns the parsed response JSON, or throws with the last error.
-async function aiFetch({ candidates, system, messages, maxTokens }) {
+async function aiFetch({ candidates, system, messages, maxTokens, signal }) {
   let res = { ok: false }, lastErr;
   for (const candidate of candidates) {
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -1984,14 +1984,20 @@ async function aiFetch({ candidates, system, messages, maxTokens }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: candidate, max_tokens: maxTokens, system, messages }),
+        signal,
       });
       if (res.ok) { if (candidate !== getSavedModel()) saveModel(candidate); break; }
       const errBody = await res.json().catch(() => ({}));
       lastErr = `HTTP ${res.status}: ${errBody.error?.message || JSON.stringify(errBody)}`;
       console.warn(`Model ${candidate} attempt ${attempt + 1} failed:`, lastErr);
       if (res.status === 429 || res.status === 529) {
+        // Abortable sleep — a cancel mid-backoff (e.g. clicking Back during generation)
+        // must not wait out the full 15s before the fetch loop actually stops.
         const wait = Math.min((attempt + 1) * 5000, 15000);
-        await new Promise(r => setTimeout(r, wait));
+        await new Promise((resolve, reject) => {
+          const t = setTimeout(resolve, wait);
+          signal?.addEventListener('abort', () => { clearTimeout(t); reject(new DOMException('Aborted', 'AbortError')); });
+        });
         continue;
       }
       break;
@@ -5094,6 +5100,11 @@ function aiqStopProgress() {
   if (aiqProgressTimer) { clearInterval(aiqProgressTimer); aiqProgressTimer = null; }
 }
 
+// Set while generateAiPlan() is in flight, so the Back button can cancel it instead
+// of navigating — and so its click handler knows not to treat that click as "go back
+// a question" (cancelling lands the athlete back on the question already on screen).
+let aiqGenerateAbort = null;
+
 async function generateAiPlan() {
   const btn      = document.getElementById('aiq-nav-next');
   const backBtn  = document.getElementById('aiq-nav-back');
@@ -5117,8 +5128,12 @@ async function generateAiPlan() {
   const { context, totalWeeks } = buildAiQuestionnaireContext();
   const systemPrompt = AI_PLAN_SYSTEM_PROMPT.replace('{totalWeeks}', totalWeeks);
 
+  const controller = new AbortController();
+  aiqGenerateAbort = controller;
+
   btn.disabled = true;
-  backBtn.disabled = true;
+  backBtn.disabled = false;
+  backBtn.textContent = 'Cancel';
   btn.textContent = 'Generating…';
   stepEl?.classList.add('hidden');
   statusEl.classList.remove('hidden');
@@ -5130,6 +5145,7 @@ async function generateAiPlan() {
       system: systemPrompt,
       messages: [{ role: 'user', content: context }],
       maxTokens: 8192,
+      signal: controller.signal,
     });
     if (data.stop_reason === 'max_tokens') {
       throw new Error('the plan was too long to finish generating — try a shorter race or fewer phases');
@@ -5148,12 +5164,17 @@ async function generateAiPlan() {
     window.scrollTo(0, 0);
 
   } catch (e) {
-    console.error('AI plan generation:', e);
-    aiqShowErr(`Couldn't generate a plan: ${e.message}. Please try again.`);
+    // A cancelled generation isn't an error — just land back on the question silently.
+    if (e.name !== 'AbortError') {
+      console.error('AI plan generation:', e);
+      aiqShowErr(`Couldn't generate a plan: ${e.message}. Please try again.`);
+    }
   } finally {
+    aiqGenerateAbort = null;
     aiqStopProgress();
     btn.disabled = false;
     backBtn.disabled = false;
+    backBtn.textContent = '← Back';
     btn.textContent = '✦ Generate plan';
     statusEl.classList.add('hidden');
     stepEl?.classList.remove('hidden');
@@ -5174,6 +5195,9 @@ document.getElementById('aiq-vo2max').addEventListener('input', (e) => {
 });
 
 document.getElementById('aiq-nav-back').addEventListener('click', () => {
+  // Mid-generation, Back cancels the in-flight request and lands back on the question
+  // that was on screen before "Generate plan" was clicked — not a step further back.
+  if (aiqGenerateAbort) { aiqGenerateAbort.abort(); return; }
   const visible = aiqVisibleSteps();
   const pos = visible.indexOf(aiqStep);
   if (pos <= 0) closeAiBuilder();
