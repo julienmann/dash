@@ -696,11 +696,6 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 .aiq-strava-badge em{font-style:normal;font-size:.95rem;}
 .aiq-field-note{font-size:.66rem;font-weight:600;color:var(--orange-strong);margin-top:.3rem;}
 .aiq-nav{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.5rem 0 3rem;}
-.aiq-review-grid{display:grid;gap:.55rem;margin-bottom:.5rem;}
-.aiq-review-row{display:flex;justify-content:space-between;gap:1rem;padding:.55rem .2rem;border-bottom:1px solid var(--border);font-size:.78rem;}
-.aiq-review-row:last-child{border-bottom:none;}
-.aiq-review-label{color:var(--mid);font-weight:600;}
-.aiq-review-value{font-weight:700;text-align:right;}
 .aiq-type-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.7rem;margin-bottom:.5rem;}
 .aiq-type-card{background:var(--bg);border:2px solid var(--border);border-radius:10px;padding:1rem .9rem;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;}
 .aiq-type-card:hover{border-color:var(--orange);}
@@ -1193,17 +1188,8 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       </div>
     </div>
 
-    <!-- Step 13 — anything else -->
+    <!-- Step 13 — VO₂ max (optional) -->
     <div class="aiq-step-card aiq-step hidden" data-step="13">
-      <div class="aiq-step-title">Anything else?</div>
-      <p class="aiq-step-sub">Optional — tune-up races, travel, or specific goals to plan around.</p>
-      <div class="aiq-solo-field">
-        <textarea class="form-input aiq-big-input" id="aiq-notes" rows="2" placeholder="e.g. Sprint triathlon on Oct 17, 2026 as a tune-up race"></textarea>
-      </div>
-    </div>
-
-    <!-- Step 14 — VO₂ max (optional) -->
-    <div class="aiq-step-card aiq-step hidden" data-step="14">
       <div class="aiq-step-title">Do you know your VO₂ max?</div>
       <p class="aiq-step-sub">Optional — if your watch (Garmin, Apple Watch, Coros) or a lab test reports one, enter it and the coach will calibrate your training paces and race prediction to it. Skip it and we'll estimate from your Strava history and goal time instead — your plan is just as complete either way.</p>
       <div class="aiq-solo-field">
@@ -1212,14 +1198,18 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       </div>
     </div>
 
-    <!-- Step 15 — review -->
-    <div class="aiq-step-card aiq-step hidden" data-step="15">
-      <div class="aiq-step-title">Ready to build your plan</div>
-      <p class="aiq-step-sub">Here's what we'll hand to the coach. Go back to change anything, or generate the plan now.</p>
-      <div class="aiq-review-grid" id="aiq-review-grid"></div>
-      <div id="ai-builder-status" class="ai-builder-status hidden" role="status" aria-live="polite">
-        <ul class="aiq-progress-list" id="aiq-progress-list"></ul>
+    <!-- Step 14 — anything else (last question; "Next" generates the plan directly, no review step) -->
+    <div class="aiq-step-card aiq-step hidden" data-step="14">
+      <div class="aiq-step-title">Anything else?</div>
+      <p class="aiq-step-sub">Optional — tune-up races, travel, or specific goals to plan around.</p>
+      <div class="aiq-solo-field">
+        <textarea class="form-input aiq-big-input" id="aiq-notes" rows="2" placeholder="e.g. Sprint triathlon on Oct 17, 2026 as a tune-up race"></textarea>
       </div>
+    </div>
+
+    <!-- Generation progress — shown in place of the active step while the plan is being built. -->
+    <div id="ai-builder-status" class="aiq-step-card ai-builder-status hidden" role="status" aria-live="polite">
+      <ul class="aiq-progress-list" id="aiq-progress-list"></ul>
     </div>
 
     <div id="ai-builder-error" class="builder-error hidden" role="alert"></div>
@@ -4621,7 +4611,7 @@ function applyAiqStravaPrefill() {
 }
 
 // ── Wizard state machine ──
-const AIQ_STEP_COUNT     = 16;
+const AIQ_STEP_COUNT     = 15;
 const AIQ_STEP_DISTANCES = 5;
 const AIQ_STEP_RACE_DATE   = 2;
 const AIQ_STEP_TRAIN_START = 3;
@@ -4663,12 +4653,7 @@ function aiqShowStep(n) {
   document.getElementById('aiq-nav-back').textContent = pos === 0 ? 'Cancel' : '← Back';
   document.getElementById('ai-builder-error').classList.add('hidden');
   const nextBtn = document.getElementById('aiq-nav-next');
-  if (pos === visible.length - 1) {
-    nextBtn.textContent = '✦ Generate plan';
-    renderAiqReview();
-  } else {
-    nextBtn.textContent = 'Next →';
-  }
+  nextBtn.textContent = pos === visible.length - 1 ? '✦ Generate plan' : 'Next →';
   window.scrollTo(0, 0);
 }
 
@@ -4703,30 +4688,6 @@ function aiqValidateStep() {
     }
   }
   return true;
-}
-
-const AIQ_REVIEW_ROWS = [
-  ['Race', () => document.getElementById('aiq-race-type').selectedOptions[0]?.text || 'Other'],
-  ['Race name', () => aiqVal('aiq-race-name') || '(auto-named)'],
-  ['Race date', () => aiqVal('aiq-race-date') || '—'],
-  ['Goal time', () => `${aiqVal('aiq-goal-hours') || 0}h ${aiqVal('aiq-goal-minutes') || 0}m`],
-  ['Training starts', () => aiqVal('aiq-train-start') || '—'],
-  ['Experience', () => AI_EXPERIENCE_LABELS[aiqVal('aiq-experience')] || '—'],
-  ['Current volume', () => `${aiqVal('aiq-current-hours') || '?'} hrs/wk`],
-  ['Days/week', () => aiqVal('aiq-days-per-week') || '—'],
-  ['Rest day', () => DOW_FULL[+aiqVal('aiq-rest-day')] ?? '—'],
-  ['Long day', () => DOW_FULL[+aiqVal('aiq-long-day')] ?? '—'],
-  ['VO₂ max', () => aiqVal('aiq-vo2max') ? `${aiqVal('aiq-vo2max')} ml/kg/min` : 'Not provided (estimated)'],
-];
-
-function renderAiqReview() {
-  const grid = document.getElementById('aiq-review-grid');
-  const rows = AIQ_REVIEW_ROWS.map(([label, get]) => `
-    <div class="aiq-review-row"><span class="aiq-review-label">${esc(label)}</span><span class="aiq-review-value">${esc(get())}</span></div>`).join('');
-  const stravaRow = aiqStravaSuggestions
-    ? `<div class="aiq-strava-badge"><em>✓</em> Your Strava training history (last 8 weeks) will be included so the coach anchors the plan to your real recent fitness, not just these estimates.</div>`
-    : '';
-  grid.innerHTML = stravaRow + rows;
 }
 
 function openAiBuilder() {
@@ -5115,7 +5076,7 @@ async function generateAiPlan() {
   const backBtn  = document.getElementById('aiq-nav-back');
   const errEl    = document.getElementById('ai-builder-error');
   const statusEl = document.getElementById('ai-builder-status');
-  const reviewEl = document.getElementById('aiq-review-grid');
+  const stepEl   = document.querySelector('#ai-builder-body .aiq-step:not(.hidden)');
   errEl.classList.add('hidden');
 
   const trainStart = aiqVal('aiq-train-start');
@@ -5136,7 +5097,7 @@ async function generateAiPlan() {
   btn.disabled = true;
   backBtn.disabled = true;
   btn.textContent = 'Generating…';
-  reviewEl.classList.add('hidden');
+  stepEl?.classList.add('hidden');
   statusEl.classList.remove('hidden');
   aiqStartProgress();
 
@@ -5172,7 +5133,7 @@ async function generateAiPlan() {
     backBtn.disabled = false;
     btn.textContent = '✦ Generate plan';
     statusEl.classList.add('hidden');
-    reviewEl.classList.remove('hidden');
+    stepEl?.classList.remove('hidden');
   }
 }
 
