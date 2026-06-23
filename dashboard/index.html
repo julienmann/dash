@@ -1069,8 +1069,17 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       </div>
     </div>
 
-    <!-- Step 3 — goal time -->
+    <!-- Step 3 — training start -->
     <div class="aiq-step-card aiq-step hidden" data-step="3">
+      <div class="aiq-step-title">When do you want to start training?</div>
+      <p class="aiq-step-sub">Usually today — push it out if you're easing in first.</p>
+      <div class="aiq-solo-field">
+        <input class="form-input aiq-big-input" type="date" id="aiq-train-start">
+      </div>
+    </div>
+
+    <!-- Step 4 — goal time -->
+    <div class="aiq-step-card aiq-step hidden" data-step="4">
       <div class="aiq-step-title">What's your goal finish time?</div>
       <p class="aiq-step-sub">A rough target is fine — it shapes pacing, not perfection.</p>
       <div class="aiq-step-grid aiq-solo-field">
@@ -1081,8 +1090,8 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       </div>
     </div>
 
-    <!-- Step 4 — race distances -->
-    <div class="aiq-step-card aiq-step hidden" data-step="4">
+    <!-- Step 5 — race distances -->
+    <div class="aiq-step-card aiq-step hidden" data-step="5">
       <div class="aiq-step-title">What are the race distances?</div>
       <p class="aiq-step-sub">Pre-filled from your race type — adjust if your event is non-standard.</p>
       <div class="aiq-step-grid aiq-solo-field">
@@ -1092,15 +1101,6 @@ footer{border-top:1px solid var(--border);background:var(--card);}
           <input class="form-input aiq-big-input" type="text" id="aiq-bike-dist" placeholder="e.g. 90 km" value="90 km"></div>
         <div class="form-group"><label class="form-label">Run</label>
           <input class="form-input aiq-big-input" type="text" id="aiq-run-dist" placeholder="e.g. 21.1 km" value="21.1 km"></div>
-      </div>
-    </div>
-
-    <!-- Step 5 — training start -->
-    <div class="aiq-step-card aiq-step hidden" data-step="5">
-      <div class="aiq-step-title">When do you want to start training?</div>
-      <p class="aiq-step-sub">Usually today — push it out if you're easing in first.</p>
-      <div class="aiq-solo-field">
-        <input class="form-input aiq-big-input" type="date" id="aiq-train-start">
       </div>
     </div>
 
@@ -4510,9 +4510,9 @@ function applyAiqStravaPrefill() {
 
 // ── Wizard state machine ──
 const AIQ_STEP_COUNT     = 16;
-const AIQ_STEP_DISTANCES = 4;
+const AIQ_STEP_DISTANCES = 5;
 const AIQ_STEP_RACE_DATE   = 2;
-const AIQ_STEP_TRAIN_START = 5;
+const AIQ_STEP_TRAIN_START = 3;
 // Steps that Strava history can answer objectively: current volume (7), days/week (8),
 // rest day (9), long-session day (10). When connected, we skip asking and use the
 // observed values — the athlete sees them confirmed on the review screen instead.
