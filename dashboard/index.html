@@ -3753,14 +3753,19 @@ function openBuilderCreate(showBack = true) {
   document.getElementById('builder-actions').classList.add('hidden');
   document.getElementById('builder-body').innerHTML = `
     <div class="builder-card">
-      <div class="builder-card-title">Start from a preset plan</div>
-      <p class="builder-section-sub">Pick a ready-made plan for a common race distance. It starts today and runs through to race day.</p>
-      <div class="form-group"><label class="form-label">Race distance</label>
-        <select class="form-input" id="preset-select">
-          <option value="">Choose a distance…</option>
-          ${PRESET_ORDER.map(id => `<option value="${id}">${esc(PRESET_SPECS[id].label)}</option>`).join('')}
+      <div class="builder-card-title">Load a pro athlete's plan</div>
+      <p class="builder-section-sub">Pick a plan modeled on a pro runner or Ironman champion's training balance — scaled to an amateur-realistic week. It starts today and runs through to race day.</p>
+      <div class="form-group"><label class="form-label">Athlete</label>
+        <select class="form-input" id="pro-select">
+          <option value="">Choose an athlete…</option>
+          <optgroup label="Ironman triathletes">
+            ${PRO_ORDER.filter(id => PRO_SPECS[id].group === 'tri').map(id => `<option value="${id}">${esc(PRO_SPECS[id].label)}</option>`).join('')}
+          </optgroup>
+          <optgroup label="Pro runners">
+            ${PRO_ORDER.filter(id => PRO_SPECS[id].group === 'run').map(id => `<option value="${id}">${esc(PRO_SPECS[id].label)}</option>`).join('')}
+          </optgroup>
         </select></div>
-      <button class="builder-add-btn builder-cta-btn" id="load-preset-btn" type="button">Load preset plan</button>
+      <button class="builder-add-btn builder-cta-btn" id="load-pro-btn" type="button">Load pro plan</button>
     </div>
     <div class="builder-card">
       <div class="builder-card-title">✦ Build a plan with AI</div>
@@ -3769,9 +3774,9 @@ function openBuilderCreate(showBack = true) {
     </div>
     ${showBack ? `<button class="builder-btn builder-btn-secondary" id="builder-back-chooser" type="button" style="margin-top:.5rem;">← Back</button>` : ''}`;
   document.getElementById('open-ai-builder-btn').addEventListener('click', openAiBuilder);
-  document.getElementById('load-preset-btn').addEventListener('click', () => {
-    const id = document.getElementById('preset-select').value;
-    if (id) applyPreset(id);
+  document.getElementById('load-pro-btn').addEventListener('click', () => {
+    const id = document.getElementById('pro-select').value;
+    if (id) applyProPlan(id);
   });
   if (showBack) document.getElementById('builder-back-chooser').addEventListener('click', renderBuilderChooser);
 }
@@ -4087,123 +4092,192 @@ function updateBuilderStatus() {
 }
 
 // ════════════════════════════════════════════
-//  PRESET PLANS — ready-made plans for common races
+//  PRO PLANS — plans modeled on pro athletes' training balance,
+//  scaled down to an amateur-realistic week (not their literal pro volumes)
 // ════════════════════════════════════════════
 
-// Template-cell helpers keep the preset definitions readable (Mon→Sun, 7 cells per week).
+// Template-cell helpers keep the spec definitions readable (Mon→Sun, 7 cells per week).
 const pRun  = (label, min) => ['run',   label, min];
 const pSwim = (label, min) => ['swim',  label, min];
 const pBike = (label, min) => ['bike',  label, min];
 const pBrk  = (label, min) => ['brick', label, min];
-const pRest = () => ['rest', 'Rest Day', 0];
+const pRest = (label = 'Rest Day') => ['rest', label, 0];
 const pWeek = (...days) => days;
 
-// id → { label, raceName, raceDuration (goal minutes), raceDistances, phases }.
-// Dates are stamped at apply time (see buildPreset), so each preset starts "today".
-const PRESET_SPECS = {
-  '70.3': {
-    label:'70.3 / Half-Ironman triathlon', raceName:'70.3 Half-Ironman', raceDuration:360,
-    raceDistances:{ swim:'1.9 km', bike:'90 km', run:'21.1 km' },
-    phases:[
-      { name:'Base', weeks:8, hrs:'6–8 hrs/wk', color:'#FC4C02', focus:'Aerobic base across all three sports', recoveryEvery:4,
-        template: pWeek(pRest(), pSwim('Technique swim',45), pRun('Easy run',45), pBike('Endurance ride',75), pSwim('Endurance swim',45), pBike('Long ride',90), pRun('Long run',60)),
-        recoveryTemplate: pWeek(pRest(), pSwim('Easy swim',30), pRun('Easy run',35), pRest(), pBike('Easy spin',45), pBike('Moderate ride',60), pRun('Easy run',40)) },
-      { name:'Build', weeks:8, hrs:'8–10 hrs/wk', color:'#D97706', focus:'Threshold work and race-specific volume', recoveryEvery:4,
-        template: pWeek(pRest(), pBike('Sweet-spot intervals',75), pRun('Tempo run',55), pSwim('CSS intervals',60), pRun('Easy run',45), pBike('Long ride',150), pBrk('Bike + run brick',90)),
-        recoveryTemplate: pWeek(pRest(), pSwim('Easy swim',40), pRun('Easy run',40), pRest(), pBike('Easy ride',90), pRun('Easy long run',60), pRest()) },
-      { name:'Peak', weeks:2, hrs:'9–11 hrs/wk', color:'#92400E', focus:'Sharpen at race pace, peak volume', recoveryEvery:0,
-        template: pWeek(pRest(), pSwim('Race-pace swim',55), pBike('Quality ride',80), pRun('Race-pace run',60), pSwim('Easy swim',45), pBike('Long ride',150), pRun('Long run',100)), recoveryTemplate:null },
-      { name:'Taper', weeks:2, hrs:'4–6 hrs/wk', color:'#78350F', focus:'Reduce volume, stay sharp', recoveryEvery:0,
-        template: pWeek(pRest(), pSwim('Short swim',40), pBike('Easy ride',60), pRun('Easy run',50), pSwim('Easy swim',30), pBike('Easy spin',40), pRun('Short run',35)), recoveryTemplate:null },
-    ],
-  },
-  full: {
-    label:'Full Ironman triathlon', raceName:'Ironman', raceDuration:720,
+// id → { label, group, raceName, raceDuration (goal minutes), raceDistances, phases }.
+// Dates are stamped at apply time (see buildProPlan), so each plan starts "today".
+// Each plan keeps the athlete's structural balance (session frequency, where the hard
+// days fall, swim/bike/run emphasis) but at hours a serious amateur can sustain.
+const PRO_SPECS = {
+  frodeno: {
+    label:'Jan Frodeno — 3x Ironman World Champion', group:'tri',
+    raceName:'Ironman (Frodeno Method)', raceDuration:720,
     raceDistances:{ swim:'3.8 km', bike:'180 km', run:'42.2 km' },
     phases:[
-      { name:'Base', weeks:8, hrs:'8–11 hrs/wk', color:'#FC4C02', focus:'Build a deep aerobic base', recoveryEvery:4,
-        template: pWeek(pRest(), pSwim('Technique swim',50), pRun('Easy run',50), pBike('Endurance ride',90), pSwim('Endurance swim',50), pBike('Long ride',120), pRun('Long run',75)),
-        recoveryTemplate: pWeek(pRest(), pSwim('Easy swim',35), pRun('Easy run',40), pRest(), pBike('Easy ride',75), pBike('Moderate ride',90), pRun('Easy run',45)) },
-      { name:'Build', weeks:10, hrs:'11–14 hrs/wk', color:'#D97706', focus:'Long-course volume and muscular endurance', recoveryEvery:4,
-        template: pWeek(pRest(), pBike('Sweet-spot ride',90), pRun('Tempo run',70), pSwim('Endurance swim',70), pRun('Easy run',60), pBike('Long ride',210), pBrk('Long brick',150)),
-        recoveryTemplate: pWeek(pRest(), pSwim('Easy swim',45), pRun('Easy run',45), pRest(), pBike('Easy ride',120), pRun('Easy long run',75), pRest()) },
-      { name:'Peak', weeks:3, hrs:'13–16 hrs/wk', color:'#92400E', focus:'Peak Ironman-specific volume', recoveryEvery:0,
-        template: pWeek(pRest(), pSwim('Race-pace swim',60), pBike('Quality ride',120), pRun('Race-pace run',90), pSwim('Easy swim',50), pBike('Long ride',300), pRun('Long run',150)), recoveryTemplate:null },
-      { name:'Taper', weeks:3, hrs:'6–9 hrs/wk', color:'#78350F', focus:'Shed fatigue, hold fitness', recoveryEvery:0,
-        template: pWeek(pRest(), pSwim('Short swim',45), pBike('Easy ride',75), pRun('Easy run',60), pSwim('Easy swim',35), pBike('Easy spin',45), pRun('Short run',40)), recoveryTemplate:null },
+      { name:'Base', weeks:8, hrs:'7–9 hrs/wk', color:'#FC4C02', focus:'Deep easy aerobic base across all three sports', recoveryEvery:4,
+        template: pWeek(pRest(), pSwim('Technique swim',50), pRun('Easy run',45), pBike('Hardest bike session of the week',75), pSwim('Endurance swim',50), pBike('Long ride',110), pRun('Long run',70)),
+        recoveryTemplate: pWeek(pRest(), pSwim('Easy swim',35), pRun('Easy run',35), pRest(), pBike('Easy spin',50), pBike('Moderate ride',70), pRun('Easy run',40)) },
+      { name:'Build', weeks:10, hrs:'10–12 hrs/wk', color:'#D97706', focus:'Race-specific volume, hardest bike day stays midweek', recoveryEvery:4,
+        template: pWeek(pRest(), pBike('Threshold bike intervals',80), pRun('Tempo run',55), pSwim('Quality swim',60), pRun('Easy run',45), pBike('Long ride',180), pBrk('Brick: bike + run',100)),
+        recoveryTemplate: pWeek(pRest(), pSwim('Easy swim',40), pRun('Easy run',40), pRest(), pBike('Easy ride',90), pRun('Easy long run',60), pRest()) },
+      { name:'Peak', weeks:3, hrs:'12–14 hrs/wk', color:'#92400E', focus:'Sharpen at race pace, peak volume', recoveryEvery:0,
+        template: pWeek(pRest(), pSwim('Race-pace swim',55), pBike('Sharpening ride',90), pRun('Race-pace run',65), pSwim('Easy swim',45), pBike('Long ride',200), pRun('Long run',120)), recoveryTemplate:null },
+      { name:'Taper', weeks:3, hrs:'5–7 hrs/wk', color:'#78350F', focus:'Shed fatigue, hold fitness', recoveryEvery:0,
+        template: pWeek(pRest(), pSwim('Short swim',40), pBike('Easy ride',60), pRun('Easy run',45), pSwim('Easy swim',30), pBike('Easy spin',45), pRun('Short run',35)), recoveryTemplate:null },
     ],
   },
-  '5k': {
-    label:'5K run', raceName:'5K Race', raceDuration:25, raceDistances:{ swim:'', bike:'', run:'5 km' },
+  blummenfelt: {
+    label:'Kristian Blummenfelt — Olympic & Ironman World Champion', group:'tri',
+    raceName:'Ironman (Norwegian Method — Blummenfelt)', raceDuration:720,
+    raceDistances:{ swim:'3.8 km', bike:'180 km', run:'42.2 km' },
     phases:[
-      { name:'Foundation', weeks:4, hrs:'2–3 hrs/wk', color:'#FC4C02', focus:'Build an easy aerobic base', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',30), pRun('Intervals 6×400m',32), pRest(), pRun('Easy run',25), pRun('Long run',45), pRest()), recoveryTemplate:null },
-      { name:'Sharpen', weeks:3, hrs:'3–4 hrs/wk', color:'#D97706', focus:'Add 5K-pace speed', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',35), pRun('5K-pace intervals',35), pRun('Easy run',25), pRest(), pRun('Tempo run',35), pRun('Long run',50)), recoveryTemplate:null },
-      { name:'Taper', weeks:1, hrs:'2 hrs/wk', color:'#78350F', focus:'Freshen up for race day', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',25), pRun('Strides',25), pRest(), pRun('Easy run',20), pRun('Race-pace tune-up',25), pRest()), recoveryTemplate:null },
+      { name:'Base', weeks:8, hrs:'9–11 hrs/wk', color:'#FC4C02', focus:'Big swim base, lactate-controlled double-threshold introduced', recoveryEvery:4,
+        template: pWeek(pRest(), pSwim('Subthreshold swim set',65), pBike('Hard bike intervals',75), pRun('Threshold run intervals',50), pBike('Endurance ride',100), pBrk('Long brick: bike + run',110), pSwim('Easy recovery swim',45)),
+        recoveryTemplate: pWeek(pRest(), pSwim('Easy swim',40), pBike('Easy ride',60), pRun('Easy run',35), pBike('Easy ride',50), pRun('Long run',60), pSwim('Easy swim',35)) },
+      { name:'Build', weeks:10, hrs:'11–13 hrs/wk', color:'#D97706', focus:'Double-threshold days twice a week, massive swim volume', recoveryEvery:4,
+        template: pWeek(pRest(), pSwim('Subthreshold swim set',70), pBike('Threshold bike intervals',85), pRun('Threshold run intervals',55), pBike('Long ride',160), pBrk('Race-simulation brick',140), pSwim('Recovery swim',40)),
+        recoveryTemplate: pWeek(pRest(), pSwim('Easy swim',45), pBike('Easy ride',70), pRun('Easy run',40), pBike('Easy ride',60), pRun('Long run',70), pSwim('Easy swim',35)) },
+      { name:'Peak', weeks:3, hrs:'12–14 hrs/wk', color:'#92400E', focus:'Lactate-tested peak volume', recoveryEvery:0,
+        template: pWeek(pRest(), pSwim('Race-pace swim set',60), pBike('Sharpening bike intervals',90), pRun('Race-pace run intervals',60), pBike('Long ride',180), pBrk('Race-simulation brick',150), pSwim('Easy swim',40)), recoveryTemplate:null },
+      { name:'Taper', weeks:3, hrs:'6–8 hrs/wk', color:'#78350F', focus:'Reduce volume, keep intensity sharp', recoveryEvery:0,
+        template: pWeek(pRest(), pSwim('Short swim',45), pBike('Easy ride',70), pRun('Easy run',40), pBike('Easy spin',50), pRun('Short run',40), pSwim('Easy swim',30)), recoveryTemplate:null },
     ],
   },
-  '10k': {
-    label:'10K run', raceName:'10K Race', raceDuration:55, raceDistances:{ swim:'', bike:'', run:'10 km' },
+  iden: {
+    label:'Gustav Iden — Ironman World Champion', group:'tri',
+    raceName:'Ironman (Norwegian Method — Iden)', raceDuration:720,
+    raceDistances:{ swim:'3.8 km', bike:'180 km', run:'42.2 km' },
     phases:[
-      { name:'Base', weeks:4, hrs:'3–4 hrs/wk', color:'#FC4C02', focus:'Aerobic base and run frequency', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',35), pRun('Intervals 5×800m',38), pRest(), pRun('Easy run',30), pRun('Long run',55), pRest()), recoveryTemplate:null },
-      { name:'Build', weeks:4, hrs:'4–5 hrs/wk', color:'#D97706', focus:'Threshold and 10K-pace work', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',40), pRun('Tempo run',42), pRun('Easy run',30), pRest(), pRun('10K-pace intervals',42), pRun('Long run',70)), recoveryTemplate:null },
-      { name:'Taper', weeks:2, hrs:'2–3 hrs/wk', color:'#78350F', focus:'Sharpen and recover', recoveryEvery:0,
+      { name:'Base', weeks:8, hrs:'9–11 hrs/wk', color:'#FC4C02', focus:'Huge swim volume, run kept controlled to protect durability', recoveryEvery:4,
+        template: pWeek(pRest(), pSwim('Big swim set',75), pBike('Endurance ride',90), pSwim('Subthreshold swim set',70), pBike('Hill threshold bike intervals',75), pRun('Controlled tempo run',45), pBrk('Brick: bike + run',90)),
+        recoveryTemplate: pWeek(pRest(), pSwim('Easy swim',45), pBike('Easy ride',60), pSwim('Easy swim',40), pBike('Easy ride',50), pRun('Easy run',35), pRun('Long run',55)) },
+      { name:'Build', weeks:10, hrs:'11–13 hrs/wk', color:'#D97706', focus:'Race-specific volume, hill threshold sets, run still controlled', recoveryEvery:4,
+        template: pWeek(pRest(), pSwim('Big swim set',80), pBike('Sweet-spot ride',95), pSwim('Subthreshold swim set',75), pBike('Hill threshold intervals',85), pRun('Tempo run',50), pBrk('Long brick',150)),
+        recoveryTemplate: pWeek(pRest(), pSwim('Easy swim',50), pBike('Easy ride',75), pSwim('Easy swim',45), pBike('Easy ride',60), pRun('Easy run',40), pRun('Long run',70)) },
+      { name:'Peak', weeks:3, hrs:'12–14 hrs/wk', color:'#92400E', focus:'Peak swim/bike volume, run held back for race day', recoveryEvery:0,
+        template: pWeek(pRest(), pSwim('Race-pace swim',65), pBike('Race-pace bike intervals',100), pSwim('Easy swim',45), pBike('Long ride',200), pRun('Race-pace run',60), pBrk('Race-simulation brick',150)), recoveryTemplate:null },
+      { name:'Taper', weeks:3, hrs:'5–7 hrs/wk', color:'#78350F', focus:'Shed fatigue before race day', recoveryEvery:0,
+        template: pWeek(pRest(), pSwim('Short swim',45), pBike('Easy ride',60), pSwim('Easy swim',35), pBike('Easy spin',45), pRun('Easy run',40), pRun('Short run',30)), recoveryTemplate:null },
+    ],
+  },
+  lange: {
+    label:'Patrick Lange — 3x Ironman World Champion', group:'tri',
+    raceName:'Ironman (Lange Method)', raceDuration:720,
+    raceDistances:{ swim:'3.8 km', bike:'180 km', run:'42.2 km' },
+    phases:[
+      { name:'Base', weeks:8, hrs:'7–9 hrs/wk', color:'#FC4C02', focus:'Big swim/bike base, run carefully managed for race-day legs', recoveryEvery:4,
+        template: pWeek(pRest(), pSwim('Quality swim',55), pBike('Moderate bike',80), pSwim('Endurance swim',55), pBike('Hardest bike session of the week',90), pRun('Sub-threshold run intervals',45), pBrk('Long brick: bike + marathon-pace run',100)),
+        recoveryTemplate: pWeek(pRest(), pSwim('Easy swim',35), pBike('Easy ride',60), pSwim('Easy swim',35), pBike('Easy ride',50), pRun('Easy run',30), pRun('Long run',45)) },
+      { name:'Build', weeks:10, hrs:'9–11 hrs/wk', color:'#D97706', focus:'Marathon-pace brick runs off the bike, running economy work', recoveryEvery:4,
+        template: pWeek(pRest(), pSwim('Quality swim',60), pBike('Moderate bike',90), pSwim('Endurance swim',60), pBike('Threshold bike',100), pRun('Track speed session',50), pBrk('Marathon-pace brick',130)),
+        recoveryTemplate: pWeek(pRest(), pSwim('Easy swim',40), pBike('Easy ride',70), pSwim('Easy swim',40), pBike('Easy ride',60), pRun('Easy run',35), pRun('Long run',55)) },
+      { name:'Peak', weeks:3, hrs:'10–12 hrs/wk', color:'#92400E', focus:'Race-pace running off the bike, peak volume', recoveryEvery:0,
+        template: pWeek(pRest(), pSwim('Race-pace swim',55), pBike('Quality ride',100), pSwim('Easy swim',45), pBike('Long ride',180), pRun('Race-pace run',55), pBrk('Marathon-pace brick',150)), recoveryTemplate:null },
+      { name:'Taper', weeks:3, hrs:'5–7 hrs/wk', color:'#78350F', focus:'Reduce volume, stay sharp', recoveryEvery:0,
+        template: pWeek(pRest(), pSwim('Short swim',40), pBike('Easy ride',60), pSwim('Easy swim',30), pBike('Easy spin',45), pRun('Easy run',40), pRun('Short run',35)), recoveryTemplate:null },
+    ],
+  },
+  sodaro: {
+    label:'Chelsea Sodaro — Ironman World Champion', group:'tri',
+    raceName:'Ironman (Sodaro Method)', raceDuration:720,
+    raceDistances:{ swim:'3.8 km', bike:'180 km', run:'42.2 km' },
+    phases:[
+      { name:'Base', weeks:8, hrs:'5–7 hrs/wk', color:'#FC4C02', focus:'"Minimum effective dose" — fewer, higher-quality sessions plus strength work', recoveryEvery:4,
+        template: pWeek(pRest('Strength + mobility'), pBike('Quality bike intervals',60), pRun('Aerobic threshold run',40), pSwim('Open-water swim',45), pRest('Strength + mobility'), pBike('Long ride (endurance)',100), pRun('Long run',60)),
+        recoveryTemplate: pWeek(pRest(), pBike('Easy ride',45), pRun('Easy run',30), pSwim('Easy swim',35), pRest(), pBike('Easy ride',60), pRun('Easy run',40)) },
+      { name:'Build', weeks:10, hrs:'7–9 hrs/wk', color:'#D97706', focus:'Aerodynamic and W/kg bike intervals, race-simulation sessions', recoveryEvery:4,
+        template: pWeek(pRest('Strength + mobility'), pBike('W/kg bike intervals',70), pRun('Aerobic threshold run',45), pSwim('Open-water swim',50), pRest('Strength + mobility'), pBike('Long ride (endurance)',130), pBrk('Race-simulation brick',100)),
+        recoveryTemplate: pWeek(pRest(), pBike('Easy ride',50), pRun('Easy run',35), pSwim('Easy swim',40), pRest(), pBike('Easy ride',70), pRun('Easy run',45)) },
+      { name:'Peak', weeks:3, hrs:'8–10 hrs/wk', color:'#92400E', focus:'Race-specific numbers: power, pace, and recovery balance', recoveryEvery:0,
+        template: pWeek(pRest('Strength + mobility'), pBike('Race-pace bike intervals',75), pRun('Race-pace run',50), pSwim('Open-water swim',50), pRest(), pBike('Long ride',150), pBrk('Race-simulation brick',120)), recoveryTemplate:null },
+      { name:'Taper', weeks:3, hrs:'4–6 hrs/wk', color:'#78350F', focus:'Recovery treated as seriously as training', recoveryEvery:0,
+        template: pWeek(pRest(), pBike('Easy ride',50), pRun('Easy run',35), pSwim('Easy swim',35), pRest(), pBike('Easy spin',45), pRun('Short run',30)), recoveryTemplate:null },
+    ],
+  },
+  kipchoge: {
+    label:'Eliud Kipchoge — 2x Olympic Marathon Champion', group:'run',
+    raceName:'Marathon (Kipchoge Method)', raceDuration:240,
+    raceDistances:{ swim:'', bike:'', run:'42.2 km' },
+    phases:[
+      { name:'Base', weeks:5, hrs:'5–6 hrs/wk', color:'#FC4C02', focus:'Easy daily mileage, one track session, long run builds', recoveryEvery:0,
+        template: pWeek(pRest(), pRun('Easy run',45), pRun('Track intervals at goal pace',45), pRun('Easy run',40), pRun('Easy run',40), pRun('Long run (alternates 24–32 km)',95), pRun('Easy recovery run',35)), recoveryTemplate:null },
+      { name:'Build', weeks:6, hrs:'6–7 hrs/wk', color:'#D97706', focus:'Fartlek speed, marathon-pace work, long run extends', recoveryEvery:4,
+        template: pWeek(pRest(), pRun('Easy run',50), pRun('Track intervals at goal pace',50), pRun('Easy run',45), pRun('Easy run',40), pRun('Long run (alternates 26–34 km)',115), pRun('Fartlek: 4×10min hard/easy',55)),
+        recoveryTemplate: pWeek(pRest(), pRun('Easy run',40), pRun('Easy run',35), pRest(), pRun('Easy run',35), pRun('Long run',75), pRest()) },
+      { name:'Peak', weeks:3, hrs:'7–8 hrs/wk', color:'#92400E', focus:'Peak long runs at goal pace', recoveryEvery:0,
+        template: pWeek(pRest(), pRun('Easy run',50), pRun('Track intervals at goal pace',55), pRun('Easy run',45), pRun('Easy run',40), pRun('Long run',140), pRun('Fartlek: 4×10min hard/easy',55)), recoveryTemplate:null },
+      { name:'Taper', weeks:2, hrs:'4–5 hrs/wk', color:'#78350F', focus:'Consistency over intensity, freshen for race day', recoveryEvery:0,
+        template: pWeek(pRest(), pRun('Easy run',35), pRun('Strides',30), pRun('Easy run',30), pRest(), pRun('Marathon-pace tune-up',35), pRun('Easy run',25)), recoveryTemplate:null },
+    ],
+  },
+  ingebrigtsen: {
+    label:'Jakob Ingebrigtsen — Olympic 1500m & 5000m Champion', group:'run',
+    raceName:'5K (Ingebrigtsen Method)', raceDuration:25,
+    raceDistances:{ swim:'', bike:'', run:'5 km' },
+    phases:[
+      { name:'Foundation', weeks:4, hrs:'3–4 hrs/wk', color:'#FC4C02', focus:'Easy aerobic volume with two lactate-controlled quality days', recoveryEvery:0,
+        template: pWeek(pRest(), pRun('Easy run',35), pRun('Subthreshold intervals',40), pRun('Easy run',30), pRun('Threshold intervals',35), pRun('Easy run',30), pRun('Long run',50)), recoveryTemplate:null },
+      { name:'Sharpen', weeks:3, hrs:'4–5 hrs/wk', color:'#D97706', focus:'Double-threshold days, hill sprints for power', recoveryEvery:0,
+        template: pWeek(pRest(), pRun('Easy run',35), pRun('Subthreshold intervals',40), pRun('Hill sprints',30), pRun('Threshold intervals: 10×400m',38), pRun('Easy run',30), pRun('Long run',55)), recoveryTemplate:null },
+      { name:'Taper', weeks:1, hrs:'2–3 hrs/wk', color:'#78350F', focus:'Sharpen, freshen legs for race day', recoveryEvery:0,
+        template: pWeek(pRest(), pRun('Easy run',25), pRun('Race-pace intervals',28), pRest(), pRun('Easy run',20), pRun('Strides',22), pRest()), recoveryTemplate:null },
+    ],
+  },
+  kiptum: {
+    label:'Kelvin Kiptum — Marathon World Record holder', group:'run',
+    raceName:'Marathon (Kiptum Method)', raceDuration:240,
+    raceDistances:{ swim:'', bike:'', run:'42.2 km' },
+    phases:[
+      { name:'Base', weeks:5, hrs:'5–7 hrs/wk', color:'#FC4C02', focus:'High-frequency running, marathon-pace work early, no true rest days', recoveryEvery:0,
+        template: pWeek(pRun('Easy double-run day',50), pRun('Easy run',45), pRun('Fartlek: 3min fast/1min slow ×60min',55), pRun('Easy double-run day',50), pRun('Marathon-pace run',55), pRun('Long run',100), pRun('Easy recovery run',35)), recoveryTemplate:null },
+      { name:'Build', weeks:6, hrs:'7–9 hrs/wk', color:'#D97706', focus:'Marathon-pace long runs twice a week', recoveryEvery:4,
+        template: pWeek(pRun('Easy double-run day',55), pRun('Easy run',50), pRun('Fartlek: 3min fast/1min slow ×60min',60), pRun('Easy double-run day',55), pRun('Marathon-pace run',65), pRun('Long run',125), pRun('Marathon-pace run',90)),
+        recoveryTemplate: pWeek(pRest(), pRun('Easy run',40), pRun('Easy run',35), pRest(), pRun('Easy run',35), pRun('Long run',80), pRest()) },
+      { name:'Peak', weeks:3, hrs:'8–10 hrs/wk', color:'#92400E', focus:'Peak marathon-pace volume', recoveryEvery:0,
+        template: pWeek(pRun('Easy double-run day',55), pRun('Easy run',50), pRun('Fartlek session',60), pRun('Easy double-run day',55), pRun('Marathon-pace run',70), pRun('Long run',150), pRun('Marathon-pace run',100)), recoveryTemplate:null },
+      { name:'Taper', weeks:2, hrs:'4–6 hrs/wk', color:'#78350F', focus:'Reduce volume, stay sharp', recoveryEvery:0,
+        template: pWeek(pRun('Easy run',35), pRun('Strides',30), pRun('Easy run',30), pRest(), pRun('Easy run',25), pRun('Marathon-pace tune-up',40), pRest()), recoveryTemplate:null },
+    ],
+  },
+  hassan: {
+    label:'Sifan Hassan — Olympic Triple & Marathon Champion', group:'run',
+    raceName:'Half Marathon (Hassan Method)', raceDuration:120,
+    raceDistances:{ swim:'', bike:'', run:'21.1 km' },
+    phases:[
+      { name:'Base', weeks:4, hrs:'4–5 hrs/wk', color:'#FC4C02', focus:'Aerobic base, weekly hill session, strides for top-end speed', recoveryEvery:0,
+        template: pWeek(pRest(), pRun('Easy run + strides',40), pRun('Track intervals (VO2max)',45), pRun('Easy run',35), pRun('Hilly run + hill charges',50), pRun('Fartlek: 5K pace/easy',45), pRun('Long steady run',70)), recoveryTemplate:null },
+      { name:'Build', weeks:5, hrs:'5–6 hrs/wk', color:'#D97706', focus:'Hill grinds, fartlek, long run builds (kept occasional, not weekly)', recoveryEvery:4,
+        template: pWeek(pRest(), pRun('Easy run + strides',45), pRun('Track intervals (VO2max)',50), pRun('Easy run',35), pRun('Hilly run + hill charges',55), pRun('Fartlek: 5K pace/easy',48), pRun('Long steady run',90)),
+        recoveryTemplate: pWeek(pRest(), pRun('Easy run',35), pRun('Easy run',30), pRest(), pRun('Easy run',30), pRun('Easy run',35), pRun('Long run',60)) },
+      { name:'Peak', weeks:2, hrs:'6–7 hrs/wk', color:'#92400E', focus:'Race-pace sharpening, kick-speed work', recoveryEvery:0,
+        template: pWeek(pRest(), pRun('Easy run + strides',45), pRun('Race-pace intervals',50), pRun('Easy run',35), pRun('Hilly run + hill charges',50), pRun('Kick-speed: fast finish reps',40), pRun('Long run',105)), recoveryTemplate:null },
+      { name:'Taper', weeks:1, hrs:'3 hrs/wk', color:'#78350F', focus:'Freshen up for race day', recoveryEvery:0,
         template: pWeek(pRest(), pRun('Easy run',30), pRun('Strides',28), pRest(), pRun('Easy run',25), pRun('Race-pace tune-up',32), pRest()), recoveryTemplate:null },
     ],
   },
-  '21k': {
-    label:'Half marathon (21.1K)', raceName:'Half Marathon', raceDuration:120, raceDistances:{ swim:'', bike:'', run:'21.1 km' },
+  bekele: {
+    label:'Kenenisa Bekele — 3x Olympic Champion, former Marathon WR holder', group:'run',
+    raceName:'Marathon (Bekele Method)', raceDuration:240,
+    raceDistances:{ swim:'', bike:'', run:'42.2 km' },
     phases:[
-      { name:'Base', weeks:4, hrs:'3–5 hrs/wk', color:'#FC4C02', focus:'Aerobic base and long-run habit', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',40), pRun('Intervals',42), pRest(), pRun('Easy run',35), pRun('Long run',70), pRun('Recovery run',30)), recoveryTemplate:null },
-      { name:'Build', weeks:5, hrs:'4–6 hrs/wk', color:'#D97706', focus:'Tempo strength and rising long runs', recoveryEvery:4,
-        template: pWeek(pRest(), pRun('Easy run',45), pRun('Tempo run',48), pRun('Easy run',35), pRest(), pRun('Intervals',45), pRun('Long run',95)),
+      { name:'Base', weeks:5, hrs:'4–5 hrs/wk', color:'#FC4C02', focus:'Lower mileage than peers, but every session run with precision', recoveryEvery:0,
+        template: pWeek(pRest(), pRun('Easy recovery run',40), pRun('Track intervals: 8×(400m+200m)',45), pRun('Moderate tempo run',40), pRun('Hill repeats',45), pRun('Easy run',35), pRun('Long run',85)), recoveryTemplate:null },
+      { name:'Build', weeks:6, hrs:'5–6 hrs/wk', color:'#D97706', focus:'Marathon-pace long runs, hill repeats for power', recoveryEvery:4,
+        template: pWeek(pRest(), pRun('Easy recovery run',45), pRun('Track intervals: 8×(400m+200m)',48), pRun('Tempo/threshold run',45), pRun('Hill repeats',50), pRun('Easy run',35), pRun('Long run',110)),
         recoveryTemplate: pWeek(pRest(), pRun('Easy run',35), pRun('Easy run',30), pRest(), pRun('Easy run',30), pRun('Long run',65), pRest()) },
-      { name:'Peak', weeks:2, hrs:'5–6 hrs/wk', color:'#92400E', focus:'Half-marathon race-pace work', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',45), pRun('Race-pace run',55), pRun('Easy run',35), pRest(), pRun('Tempo run',45), pRun('Long run',110)), recoveryTemplate:null },
-      { name:'Taper', weeks:1, hrs:'3 hrs/wk', color:'#78350F', focus:'Freshen up for race day', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',30), pRun('Strides',30), pRest(), pRun('Easy run',25), pRun('Race-pace tune-up',35), pRest()), recoveryTemplate:null },
-    ],
-  },
-  '42k': {
-    label:'Marathon (42.2K)', raceName:'Marathon', raceDuration:240, raceDistances:{ swim:'', bike:'', run:'42.2 km' },
-    phases:[
-      { name:'Base', weeks:5, hrs:'4–6 hrs/wk', color:'#FC4C02', focus:'Aerobic base and mileage', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',45), pRun('Easy run',40), pRun('Intervals',45), pRest(), pRun('Long run',80), pRun('Recovery run',30)), recoveryTemplate:null },
-      { name:'Build', weeks:6, hrs:'5–7 hrs/wk', color:'#D97706', focus:'Marathon-pace work and long runs', recoveryEvery:4,
-        template: pWeek(pRest(), pRun('Easy run',50), pRun('Tempo run',50), pRun('Easy run',40), pRest(), pRun('Marathon-pace run',50), pRun('Long run',120)),
-        recoveryTemplate: pWeek(pRest(), pRun('Easy run',40), pRun('Easy run',35), pRest(), pRun('Easy run',35), pRun('Long run',80), pRest()) },
-      { name:'Peak', weeks:3, hrs:'6–8 hrs/wk', color:'#92400E', focus:'Peak long runs at goal pace', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',50), pRun('Race-pace run',60), pRun('Easy run',45), pRest(), pRun('Tempo run',45), pRun('Long run',150)), recoveryTemplate:null },
-      { name:'Taper', weeks:2, hrs:'3–5 hrs/wk', color:'#78350F', focus:'Reduce volume, stay sharp', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',35), pRun('Strides',30), pRest(), pRun('Easy run',30), pRun('Marathon-pace tune-up',40), pRest()), recoveryTemplate:null },
-    ],
-  },
-  '50k': {
-    label:'50K ultramarathon', raceName:'50K Ultramarathon', raceDuration:360, raceDistances:{ swim:'', bike:'', run:'50 km' },
-    phases:[
-      { name:'Base', weeks:6, hrs:'5–7 hrs/wk', color:'#FC4C02', focus:'Time on feet and aerobic base', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',45), pRun('Hill repeats',50), pRun('Easy run',40), pRest(), pRun('Long run',90), pRun('Recovery run',40)), recoveryTemplate:null },
-      { name:'Build', weeks:7, hrs:'6–9 hrs/wk', color:'#D97706', focus:'Back-to-back long runs', recoveryEvery:4,
-        template: pWeek(pRest(), pRun('Easy run',50), pRun('Tempo run',50), pRun('Easy run',45), pRest(), pRun('Long run',130), pRun('Back-to-back long run',80)),
-        recoveryTemplate: pWeek(pRest(), pRun('Easy run',40), pRun('Easy run',40), pRest(), pRun('Easy run',35), pRun('Long run',90), pRun('Easy run',45)) },
-      { name:'Peak', weeks:3, hrs:'8–11 hrs/wk', color:'#92400E', focus:'Peak ultra-specific volume', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',50), pRun('Race-pace run',60), pRun('Easy run',45), pRest(), pRun('Long run',180), pRun('Back-to-back long run',100)), recoveryTemplate:null },
-      { name:'Taper', weeks:2, hrs:'4–6 hrs/wk', color:'#78350F', focus:'Shed fatigue before race day', recoveryEvery:0,
-        template: pWeek(pRest(), pRun('Easy run',40), pRun('Strides',30), pRest(), pRun('Easy run',30), pRun('Long run',60), pRest()), recoveryTemplate:null },
+      { name:'Peak', weeks:3, hrs:'6–7 hrs/wk', color:'#92400E', focus:'Peak precision — marathon-pace long runs', recoveryEvery:0,
+        template: pWeek(pRest(), pRun('Easy recovery run',45), pRun('Track intervals: 8×(400m+200m)',50), pRun('Race-pace run',50), pRun('Hill repeats',45), pRun('Easy run',35), pRun('Long run',130)), recoveryTemplate:null },
+      { name:'Taper', weeks:2, hrs:'3–4 hrs/wk', color:'#78350F', focus:'Back to basics — reduce volume, stay precise', recoveryEvery:0,
+        template: pWeek(pRest(), pRun('Easy run',30), pRun('Strides',28), pRun('Easy run',25), pRest(), pRun('Marathon-pace tune-up',35), pRest()), recoveryTemplate:null },
     ],
   },
 };
 
-const PRESET_ORDER = ['70.3', 'full', '5k', '10k', '21k', '42k', '50k'];
+const PRO_ORDER = ['frodeno', 'blummenfelt', 'iden', 'lange', 'sodaro', 'kipchoge', 'ingebrigtsen', 'kiptum', 'hassan', 'bekele'];
 
-// Expand a preset spec into a full plan object rooted at today (matching DEFAULT_PLAN's shape).
-function buildPreset(id) {
-  const spec = PRESET_SPECS[id];
+// Expand a pro-plan spec into a full plan object rooted at today (matching DEFAULT_PLAN's shape).
+function buildProPlan(id) {
+  const spec = PRO_SPECS[id];
   if (!spec) return null;
   const totalWeeks = spec.phases.reduce((s, p) => s + p.weeks, 0);
   return {
@@ -4217,11 +4291,11 @@ function buildPreset(id) {
   };
 }
 
-// Load a preset into the draft and re-render the builder so the user can review/tweak it.
-function applyPreset(id) {
-  const plan = buildPreset(id);
-  if (!plan) { toast('That preset could not be loaded.', { error: true }); return; }
-  if (isDraftDirty() && !confirm('Replace your current edits with this preset? Unsaved changes will be lost.')) return;
+// Load a pro plan into the draft and re-render the builder so the user can review/tweak it.
+function applyProPlan(id) {
+  const plan = buildProPlan(id);
+  if (!plan) { toast('That plan could not be loaded.', { error: true }); return; }
+  if (isDraftDirty() && !confirm('Replace your current edits with this plan? Unsaved changes will be lost.')) return;
   DRAFT_PLAN = plan;
   markDraftBaseline();
   document.getElementById('builder-error').classList.add('hidden');
