@@ -1449,9 +1449,9 @@ function loadRawPlan() {
   return JSON.parse(JSON.stringify(DEFAULT_PLAN));
 }
 
-function savePlan(plan) {
+async function savePlan(plan) {
   localStorage.setItem(PLAN_KEY, JSON.stringify(plan));
-  pushPlanToServer(plan);
+  await pushPlanToServer(plan);
 }
 
 // Expands a stored plan into the date-resolved structures the dashboard renders from
@@ -5102,7 +5102,7 @@ document.getElementById('builder-reset').addEventListener('click', () => {
   location.reload();
 });
 
-document.getElementById('builder-save').addEventListener('click', () => {
+document.getElementById('builder-save').addEventListener('click', async () => {
   const errEl = document.getElementById('builder-error');
   const err   = validatePlan(DRAFT_PLAN);
   if (err) {
@@ -5110,7 +5110,7 @@ document.getElementById('builder-save').addEventListener('click', () => {
     errEl.classList.remove('hidden');
     return;
   }
-  savePlan(DRAFT_PLAN);
+  await savePlan(DRAFT_PLAN);
   localStorage.removeItem(AI_OPT_KEY);
   // Persist a one-shot flag so the post-reload page can confirm the save was applied.
   try { sessionStorage.setItem('jm_saved_toast', '1'); } catch {}
