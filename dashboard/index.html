@@ -886,7 +886,6 @@ footer{border-top:1px solid var(--border);background:var(--card);}
     <button class="sport-tab active" data-sport="run">Running</button>
     <button class="sport-tab" data-sport="ride">Cycling</button>
     <button class="sport-tab" data-sport="swim">Swimming</button>
-    <button class="sport-tab" data-sport="hike">Hiking</button>
     <div class="sport-tab-add-wrap">
       <button class="sport-tab-add" id="sport-add-btn">+ Add</button>
     </div>
@@ -2662,7 +2661,6 @@ const SPORTS = {
   run:  { types:STRAVA_TYPES.run,  label:'Running',  countLabel:'Runs',  longestLabel:'Longest Run',  ytdKey:'ytd_run_totals'  },
   ride: { types:STRAVA_TYPES.ride, label:'Cycling',  countLabel:'Rides', longestLabel:'Longest Ride', ytdKey:'ytd_ride_totals' },
   swim: { types:STRAVA_TYPES.swim, label:'Swimming', countLabel:'Swims', longestLabel:'Longest Swim', ytdKey:'ytd_swim_totals' },
-  hike: { types:STRAVA_TYPES.hike, label:'Hiking',   countLabel:'Hikes', longestLabel:'Longest Hike', ytdKey:null              },
 };
 
 // ── Strava config ────────────────────────────────────────────────
@@ -3217,7 +3215,7 @@ const CUSTOM_SPORTS_KEY = 'jm_custom_sports_v1';
 let gCustomSports = []; // strava activity type strings added by the user
 
 const DEFAULT_COVERED_TYPES = new Set([
-  ...STRAVA_TYPES.run, ...STRAVA_TYPES.ride, ...STRAVA_TYPES.swim, ...STRAVA_TYPES.hike,
+  ...STRAVA_TYPES.run, ...STRAVA_TYPES.ride, ...STRAVA_TYPES.swim,
 ]);
 
 function buildCustomSportDef(type) {
