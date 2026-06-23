@@ -1293,6 +1293,15 @@ footer{border-top:1px solid var(--border);background:var(--card);}
       <div class="aiq-type-grid" id="pro-q-experience-grid"></div>
     </div>
 
+    <!-- Step 4 — injuries -->
+    <div class="aiq-step-card aiq-step hidden" data-step="4">
+      <div class="aiq-step-title">Any injuries to work around?</div>
+      <p class="aiq-step-sub">Optional — mention an affected sport (run, bike, or swim) and those sessions are swapped for rest.</p>
+      <div class="aiq-solo-field">
+        <textarea class="form-input aiq-big-input" id="pro-q-injuries" rows="2" placeholder="e.g. history of IT band issues, avoid high-impact running early on"></textarea>
+      </div>
+    </div>
+
     <div id="pro-q-error" class="builder-error hidden" role="alert"></div>
     <div class="aiq-nav">
       <button class="builder-btn builder-btn-secondary" id="pro-q-nav-back" type="button">Back</button>
@@ -4501,6 +4510,7 @@ function buildProPlanFromAnswers(id, answers) {
     phases[donorIdx].weeks  -= amount;
     phases[targetIdx].weeks += amount;
   }
+  applyProPlanInjuries(phases, answers.injuries);
   return {
     raceName: answers.raceName || spec.raceName,
     raceDate: answers.raceDate,
@@ -4510,6 +4520,31 @@ function buildProPlanFromAnswers(id, answers) {
     phases,
     raceEvents: [],
   };
+}
+
+// Free-text injury answer is matched against sport keywords (no AI for pro plans,
+// which are fixed templates) — any matched sport's sessions, including bricks that
+// include it, become rest. The athlete can fine-tune further in the builder.
+const PRO_INJURY_SPORT_KEYWORDS = {
+  run:  ['run', 'running'],
+  bike: ['bike', 'biking', 'cycle', 'cycling', 'ride'],
+  swim: ['swim', 'swimming'],
+};
+function applyProPlanInjuries(phases, injuriesText) {
+  const lower = (injuriesText || '').toLowerCase();
+  const sports = Object.keys(PRO_INJURY_SPORT_KEYWORDS)
+    .filter(sport => PRO_INJURY_SPORT_KEYWORDS[sport].some(kw => lower.includes(kw)));
+  if (!sports.length) return;
+  const restDay = () => ['rest', 'Rest (injury modification)', 0];
+  const modify = week => week && week.map(day => {
+    const [type] = day;
+    return (sports.includes(type) || (type === 'brick' && sports.some(s => s === 'run' || s === 'bike')))
+      ? restDay() : day;
+  });
+  phases.forEach(ph => {
+    ph.template = modify(ph.template);
+    ph.recoveryTemplate = modify(ph.recoveryTemplate);
+  });
 }
 
 // Load a pro plan into the draft and re-render the builder so the user can review/tweak it.
@@ -4526,8 +4561,8 @@ function applyProPlan(id, answers) {
 }
 
 // Pro-plan questionnaire — same one-question-at-a-time wizard format as the AI
-// builder (own state, since it's a separate 4-step flow from the AI questionnaire).
-const PRO_Q_STEP_COUNT = 4;
+// builder (own state, since it's a separate 5-step flow from the AI questionnaire).
+const PRO_Q_STEP_COUNT = 5;
 let proQStep      = 0;
 let proQAthleteId = null;
 
@@ -4546,6 +4581,7 @@ function openProPlanQuestions(id) {
   document.getElementById('pro-q-race-date').value   = trnDateStr(addDays(today, totalWeeks * 7));
   document.getElementById('pro-q-train-start').value = trnDateStr(today);
   document.getElementById('pro-q-experience').value  = 'some';
+  document.getElementById('pro-q-injuries').value    = '';
   renderAiqCardGrid('pro-q-experience', 'pro-q-experience-grid', AIQ_EXPERIENCE_META);
   proQShowStep(0);
 }
@@ -4606,6 +4642,7 @@ document.getElementById('pro-q-nav-next').addEventListener('click', () => {
     raceDate:   document.getElementById('pro-q-race-date').value,
     trainStart: document.getElementById('pro-q-train-start').value,
     experience: document.getElementById('pro-q-experience').value,
+    injuries:   document.getElementById('pro-q-injuries').value.trim(),
   });
 });
 
