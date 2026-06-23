@@ -635,6 +635,22 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 /* Entry CTAs (Load preset / Start AI) start a flow, so they use a solid border —
    the dashed style stays reserved for "+ Add" placeholder actions. */
 .builder-cta-btn{border-style:solid;margin-bottom:0;}
+.pro-plan-group-label{font-size:.68rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--mid);margin:.9rem 0 .4rem;}
+.pro-plan-group-label:first-child{margin-top:0;}
+.pro-plan-list{border:1.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:.3rem;}
+.pro-plan-item{border-bottom:1px solid var(--border);}
+.pro-plan-item:last-child{border-bottom:none;}
+.pro-plan-item-hdr{display:flex;align-items:center;gap:.6rem;width:100%;padding:.65rem .8rem;text-align:left;transition:background .15s;}
+.pro-plan-item-hdr:hover{background:var(--bg);}
+.pro-plan-item-name{flex:1;font-size:.8rem;font-weight:600;color:var(--fg);}
+.pro-plan-item-chev{font-size:.65rem;color:var(--mid);transition:transform .18s;flex-shrink:0;}
+.pro-plan-item.open .pro-plan-item-chev{transform:rotate(90deg);}
+.pro-plan-item-body{max-height:0;overflow:hidden;transition:max-height .22s ease;}
+.pro-plan-item.open .pro-plan-item-body{max-height:600px;}
+.pro-plan-item-body-inner{padding:0 .8rem .8rem;}
+.pro-plan-item-desc{font-size:.76rem;color:var(--mid);line-height:1.55;margin-bottom:.7rem;}
+.pro-plan-item-load-btn{font-size:.74rem;font-weight:700;color:#fff;background:var(--orange-strong);padding:.5rem .85rem;border-radius:6px;transition:opacity .15s;}
+.pro-plan-item-load-btn:hover{opacity:.88;}
 .builder-error{font-size:.78rem;color:#C0392B;font-weight:600;background:rgba(192,57,43,.08);border:1px solid rgba(192,57,43,.25);border-radius:6px;padding:.6rem .8rem;margin-bottom:1.25rem;}
 .builder-status{font-size:.74rem;font-weight:600;color:var(--mid);margin-bottom:.9rem;display:flex;gap:.4rem;align-items:center;}
 .builder-status.over{color:var(--red);}
@@ -3755,18 +3771,11 @@ function openBuilderCreate(showBack = true) {
   document.getElementById('builder-body').innerHTML = `
     <div class="builder-card">
       <div class="builder-card-title">Load a pro athlete's plan</div>
-      <p class="builder-section-sub">Pick a plan modeled on a pro runner or Ironman champion's training balance — scaled to an amateur-realistic week. It starts today and runs through to race day.</p>
-      <div class="form-group"><label class="form-label">Athlete</label>
-        <select class="form-input" id="pro-select">
-          <option value="">Choose an athlete…</option>
-          <optgroup label="Ironman triathletes">
-            ${PRO_ORDER.filter(id => PRO_SPECS[id].group === 'tri').map(id => `<option value="${id}">${esc(PRO_SPECS[id].label)}</option>`).join('')}
-          </optgroup>
-          <optgroup label="Pro runners">
-            ${PRO_ORDER.filter(id => PRO_SPECS[id].group === 'run').map(id => `<option value="${id}">${esc(PRO_SPECS[id].label)}</option>`).join('')}
-          </optgroup>
-        </select></div>
-      <button class="builder-add-btn builder-cta-btn" id="load-pro-btn" type="button">Load pro plan</button>
+      <p class="builder-section-sub">Pick a plan modeled on a pro runner or Ironman champion's training balance — scaled to an amateur-realistic week. It starts today and runs through to race day. Tap an athlete to see what makes their method different.</p>
+      <div class="pro-plan-group-label">Ironman triathletes</div>
+      <div class="pro-plan-list">${PRO_ORDER.filter(id => PRO_SPECS[id].group === 'tri').map(proPlanItemHtml).join('')}</div>
+      <div class="pro-plan-group-label">Pro runners</div>
+      <div class="pro-plan-list">${PRO_ORDER.filter(id => PRO_SPECS[id].group === 'run').map(proPlanItemHtml).join('')}</div>
     </div>
     <div class="builder-card">
       <div class="builder-card-title">✦ Build a plan with AI</div>
@@ -3775,11 +3784,43 @@ function openBuilderCreate(showBack = true) {
     </div>
     ${showBack ? `<button class="builder-btn builder-btn-secondary" id="builder-back-chooser" type="button" style="margin-top:.5rem;">← Back</button>` : ''}`;
   document.getElementById('open-ai-builder-btn').addEventListener('click', openAiBuilder);
-  document.getElementById('load-pro-btn').addEventListener('click', () => {
-    const id = document.getElementById('pro-select').value;
-    if (id) applyProPlan(id);
-  });
+  wireProPlanList();
   if (showBack) document.getElementById('builder-back-chooser').addEventListener('click', renderBuilderChooser);
+}
+
+// One collapsed row per athlete; tapping the row expands a description of their
+// training method without leaving the page, then offers a button to load it.
+function proPlanItemHtml(id) {
+  const spec = PRO_SPECS[id];
+  return `
+    <div class="pro-plan-item" data-pro-id="${id}">
+      <button class="pro-plan-item-hdr" type="button" aria-expanded="false">
+        <span class="pro-plan-item-name">${esc(spec.label)}</span>
+        <span class="pro-plan-item-chev">▶</span>
+      </button>
+      <div class="pro-plan-item-body">
+        <div class="pro-plan-item-body-inner">
+          <p class="pro-plan-item-desc">${esc(spec.blurb)}</p>
+          <button class="pro-plan-item-load-btn" type="button" data-load-pro="${id}">Load this plan</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function wireProPlanList() {
+  document.querySelectorAll('.pro-plan-item-hdr').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const item = hdr.closest('.pro-plan-item');
+      const isOpen = item.classList.toggle('open');
+      hdr.setAttribute('aria-expanded', String(isOpen));
+    });
+  });
+  document.querySelectorAll('[data-load-pro]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      applyProPlan(btn.dataset.loadPro);
+    });
+  });
 }
 
 // New account with no plan saved server-side yet. Locks the user into the
@@ -4112,6 +4153,7 @@ const pWeek = (...days) => days;
 const PRO_SPECS = {
   frodeno: {
     label:'Jan Frodeno — 3x Ironman World Champion', group:'tri',
+    blurb:`Classic polarized triathlon base: easy almost everywhere, with one deliberately hard bike session placed midweek instead of on the weekend. What's different: the hardest effort of the week happens on a Wednesday, not a Saturday — so the long weekend days stay aerobic and recovery isn't fighting a hangover from Friday's intensity.`,
     raceName:'Ironman (Frodeno Method)', raceDuration:720,
     raceDistances:{ swim:'3.8 km', bike:'180 km', run:'42.2 km' },
     phases:[
@@ -4129,6 +4171,7 @@ const PRO_SPECS = {
   },
   blummenfelt: {
     label:'Kristian Blummenfelt — Olympic & Ironman World Champion', group:'tri',
+    blurb:`The Norwegian Method: lactate-controlled “double threshold” days — two quality sessions in the same week held just below and at threshold, layered on top of huge swim volume. What's different: instead of one big hard day, the intensity is split into smaller, tightly-controlled doses so you can do more total quality work without digging a fatigue hole.`,
     raceName:'Ironman (Norwegian Method — Blummenfelt)', raceDuration:720,
     raceDistances:{ swim:'3.8 km', bike:'180 km', run:'42.2 km' },
     phases:[
@@ -4146,6 +4189,7 @@ const PRO_SPECS = {
   },
   iden: {
     label:'Gustav Iden — Ironman World Champion', group:'tri',
+    blurb:`Norwegian Method again, but swim-dominant — huge pool volume with run deliberately capped to protect durability. What's different: running is the scarcest resource in the week, not the biggest, because it's treated as the discipline most likely to break down under load.`,
     raceName:'Ironman (Norwegian Method — Iden)', raceDuration:720,
     raceDistances:{ swim:'3.8 km', bike:'180 km', run:'42.2 km' },
     phases:[
@@ -4163,6 +4207,7 @@ const PRO_SPECS = {
   },
   lange: {
     label:'Patrick Lange — 3x Ironman World Champion', group:'tri',
+    blurb:`A triathlon plan built backwards from the marathon leg: heavy swim/bike aerobic work funds a running economy that holds up after 180km on the bike. What's different: track speed and marathon-pace bricks off the bike get equal billing with swim/bike volume, instead of running being an afterthought.`,
     raceName:'Ironman (Lange Method)', raceDuration:720,
     raceDistances:{ swim:'3.8 km', bike:'180 km', run:'42.2 km' },
     phases:[
@@ -4180,6 +4225,7 @@ const PRO_SPECS = {
   },
   sodaro: {
     label:'Chelsea Sodaro — Ironman World Champion', group:'tri',
+    blurb:`“Minimum effective dose” — fewer sessions than the other pros here, but each one is higher-quality, plus two dedicated strength days. What's different: this is the lowest-volume plan in the triathlete group; it bets on power output and recovery quality over piling on hours.`,
     raceName:'Ironman (Sodaro Method)', raceDuration:720,
     raceDistances:{ swim:'3.8 km', bike:'180 km', run:'42.2 km' },
     phases:[
@@ -4197,6 +4243,7 @@ const PRO_SPECS = {
   },
   kipchoge: {
     label:'Eliud Kipchoge — 2x Olympic Marathon Champion', group:'run',
+    blurb:`80/20 polarized marathon training: easy daily mileage, one track session, one long run, one fartlek — repeated, almost unchanged, week after week. What's different: there's no novelty. The structure barely varies; the long run alternates between two fixed distances and that's it.`,
     raceName:'Marathon (Kipchoge Method)', raceDuration:240,
     raceDistances:{ swim:'', bike:'', run:'42.2 km' },
     phases:[
@@ -4213,6 +4260,7 @@ const PRO_SPECS = {
   },
   ingebrigtsen: {
     label:'Jakob Ingebrigtsen — Olympic 1500m & 5000m Champion', group:'run',
+    blurb:`Double-threshold training compressed for the 5K: two lactate-controlled quality days a week, easy everywhere else, with hill sprints for top-end power. What's different: it's the shortest, sharpest plan here — built for repeatable speed sessions rather than aerobic volume.`,
     raceName:'5K (Ingebrigtsen Method)', raceDuration:25,
     raceDistances:{ swim:'', bike:'', run:'5 km' },
     phases:[
@@ -4226,6 +4274,7 @@ const PRO_SPECS = {
   },
   kiptum: {
     label:'Kelvin Kiptum — Marathon World Record holder', group:'run',
+    blurb:`Marathon training with no true rest days — daily volume (often split into two runs) with marathon-pace work introduced early and repeated often. What's different: where most plans protect a rest day, this one replaces it with an easy double-run day; the engine is built through sheer frequency.`,
     raceName:'Marathon (Kiptum Method)', raceDuration:240,
     raceDistances:{ swim:'', bike:'', run:'42.2 km' },
     phases:[
@@ -4242,6 +4291,7 @@ const PRO_SPECS = {
   },
   hassan: {
     label:'Sifan Hassan — Olympic Triple & Marathon Champion', group:'run',
+    blurb:`Multi-distance speed-endurance: weekly hill grinds and fartlek sit alongside track VO2max work, with the long run kept occasional rather than a fixed weekly fixture. What's different: there's a dedicated kick-speed session late in the plan — built for closing fast, not just surviving the distance.`,
     raceName:'Half Marathon (Hassan Method)', raceDuration:120,
     raceDistances:{ swim:'', bike:'', run:'21.1 km' },
     phases:[
@@ -4258,6 +4308,7 @@ const PRO_SPECS = {
   },
   bekele: {
     label:'Kenenisa Bekele — 3x Olympic Champion, former Marathon WR holder', group:'run',
+    blurb:`Lower weekly volume than its peers, but every session — track intervals, hill repeats, tempo — is run with precision. What's different: this plan proves you don't need the highest mileage to hit marathon pace; it leans on quality and hill power instead of sheer distance.`,
     raceName:'Marathon (Bekele Method)', raceDuration:240,
     raceDistances:{ swim:'', bike:'', run:'42.2 km' },
     phases:[
