@@ -449,7 +449,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 }
 .sport-tab-add:hover{border-color:var(--mid);color:var(--fg);}
 .sport-add-dropdown{
-  position:absolute;top:calc(100% + 6px);left:0;z-index:200;
+  position:fixed;z-index:200;
   background:var(--card);border:1.5px solid var(--border);border-radius:10px;
   padding:.3rem;min-width:155px;box-shadow:var(--shadow-md);display:none;
 }
@@ -3234,6 +3234,13 @@ function removeCustomSport(type) {
 function openSportAddDropdown() {
   const dropdown = document.getElementById('sport-add-dropdown');
   if (dropdown.classList.contains('open')) { dropdown.classList.remove('open'); return; }
+  // .sport-tabs scrolls horizontally (overflow-x:auto), which clips any absolutely-positioned
+  // child regardless of z-index — so the dropdown is reparented to <body> and fixed-positioned
+  // off the button's own rect, escaping that clipping ancestor entirely.
+  document.body.appendChild(dropdown);
+  const btnRect = document.getElementById('sport-add-btn').getBoundingClientRect();
+  dropdown.style.top  = `${btnRect.bottom + 6}px`;
+  dropdown.style.left = `${btnRect.left}px`;
   const available = gActivities
     ? [...new Set(gActivities.map(a => a.type))]
         .filter(t => !DEFAULT_COVERED_TYPES.has(t) && !gCustomSports.includes(t))
