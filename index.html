@@ -127,6 +127,9 @@ section:first-of-type{border-top:none;}
 .auth-link{color:var(--orange-strong);font-weight:700;background:none;border:none;cursor:pointer;font-family:inherit;font-size:inherit;padding:0;}
 .auth-link:hover{text-decoration:underline;}
 .auth-foot{font-size:.82rem;color:var(--mid);margin:1.1rem 0 0;line-height:1.5;text-align:center;}
+/* Deliberately understated next to the primary CTA — present, not promoted. */
+.connect-skip{display:block;width:100%;text-align:center;font-size:.78rem;font-weight:500;color:var(--mid);background:none;border:none;cursor:pointer;font-family:inherit;padding:.4rem 0;margin-top:.9rem;min-height:44px;}
+.connect-skip:hover{color:var(--fg);text-decoration:underline;}
 
 /* ── Restrained page-load reveal ───────────────────────── */
 @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
@@ -361,17 +364,35 @@ section:first-of-type{border-top:none;}
         <button class="auth-link" type="button" id="auth-toggle">Log in</button>
       </p>
 
-      <p class="auth-foot">Your plan syncs across your devices and stays private to your account. Connect Strava once you're in, from the dashboard.</p>
+      <p class="auth-foot">Your plan syncs across your devices and stays private to your account.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ CONNECT-STRAVA PROMPT (shown once, right after account creation) ════════════════ -->
+<div id="view-connect" class="auth-screen hidden">
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <div class="auth-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true" style="width:100%;height:100%;fill:#FC4C02;"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+      </div>
+      <h1 class="auth-title">Connect Strava?</h1>
+      <p class="auth-lead">Your account is ready. One more thing makes the plan itself better: connecting Strava lets the dashboard see what you actually did, not just what was scheduled. Missed or cut-short sessions get accounted for automatically, paces and effort are grounded in your real fitness instead of a guess, and the week ahead quietly adjusts instead of running on autopilot.</p>
+      <button class="btn btn-primary btn-lg btn-block" type="button" id="connect-strava-btn">Connect with Strava →</button>
+      <button class="connect-skip" type="button" id="connect-skip-btn">Skip for now</button>
     </div>
   </div>
 </div>
 
 <script>
+const STRAVA_CLIENT_ID = '250989';
 const WORKER_URL       = 'https://strava-auth.jmdashboard.workers.dev';
 const SESSION_KEY      = 'jm_session_v1';
+const OAUTH_STATE_KEY  = 'jm_oauth_state';
 
 const viewLanding = document.getElementById('view-landing');
 const viewAuth    = document.getElementById('view-auth');
+const viewConnect = document.getElementById('view-connect');
 const registerForm = document.getElementById('register-form');
 const loginForm    = document.getElementById('login-form');
 const authTitle   = document.getElementById('auth-title');
@@ -400,6 +421,7 @@ function setAuthMode(mode) {
 function showAuth(mode) {
   setAuthMode(mode);
   viewLanding.classList.add('hidden');
+  viewConnect.classList.add('hidden');
   viewAuth.classList.remove('hidden');
   window.scrollTo(0, 0);
   const focusEl = document.getElementById(authMode === 'login' ? 'login-email' : 'register-email');
@@ -408,7 +430,17 @@ function showAuth(mode) {
 
 function showLanding() {
   viewAuth.classList.add('hidden');
+  viewConnect.classList.add('hidden');
   viewLanding.classList.remove('hidden');
+}
+
+// Shown once, right after a successful registration — not on login, since a
+// returning user already made this choice.
+function showConnectPrompt() {
+  viewLanding.classList.add('hidden');
+  viewAuth.classList.add('hidden');
+  viewConnect.classList.remove('hidden');
+  window.scrollTo(0, 0);
 }
 
 // ── Hash routing (#login / #get-started restore the auth view on refresh) ──
@@ -437,27 +469,40 @@ authToggle.addEventListener('click', () => {
 window.addEventListener('hashchange', routeFromHash);
 
 // ── Email / password auth ──
-async function submitAuth(path, email, password, errorEl) {
+async function submitAuth(path, email, password, errorEl, onSuccess) {
   errorEl.textContent = '';
   try {
     const res  = await fetch(WORKER_URL + path, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email, password }) });
     const data = await res.json();
     if (!res.ok) { errorEl.textContent = data.error || 'Something went wrong'; return; }
     localStorage.setItem(SESSION_KEY, JSON.stringify({ token:data.token, email:data.email }));
-    window.location.href = '/dashboard/';
+    onSuccess();
   } catch {
     errorEl.textContent = 'Could not reach the server. Try again.';
   }
 }
 
+// ── Connect-Strava prompt (CSRF state preserved, same flow the dashboard's own
+// strava-setup screen uses) ──
+document.getElementById('connect-strava-btn').addEventListener('click', () => {
+  const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
+  try { sessionStorage.setItem(OAUTH_STATE_KEY, state); } catch {}
+  const redirectUri = window.location.origin + '/dashboard/';
+  const p = new URLSearchParams({ client_id:STRAVA_CLIENT_ID, response_type:'code', redirect_uri:redirectUri, approval_prompt:'auto', scope:'activity:read_all,read', state });
+  window.location.href = 'https://www.strava.com/oauth/authorize?' + p;
+});
+document.getElementById('connect-skip-btn').addEventListener('click', () => {
+  window.location.href = '/dashboard/';
+});
+
 registerForm.addEventListener('submit', (e) => {
   e.preventDefault();
-  submitAuth('/auth/register', document.getElementById('register-email').value.trim(), document.getElementById('register-password').value, document.getElementById('register-error'));
+  submitAuth('/auth/register', document.getElementById('register-email').value.trim(), document.getElementById('register-password').value, document.getElementById('register-error'), showConnectPrompt);
 });
 
 loginForm.addEventListener('submit', (e) => {
   e.preventDefault();
-  submitAuth('/auth/login', document.getElementById('login-email').value.trim(), document.getElementById('login-password').value, document.getElementById('login-error'));
+  submitAuth('/auth/login', document.getElementById('login-email').value.trim(), document.getElementById('login-password').value, document.getElementById('login-error'), () => { window.location.href = '/dashboard/'; });
 });
 
 // Initial route (supports landing on /#login directly).
