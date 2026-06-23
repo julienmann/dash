@@ -54,14 +54,14 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .topnav-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:48px;gap:1rem;}
 .topnav-back{font-size:.75rem;font-weight:500;color:var(--mid);display:flex;align-items:center;gap:.3rem;transition:color .15s;flex-shrink:0;background:none;border:none;cursor:pointer;padding:0;}
 .topnav-back:hover{color:var(--fg);}
-.topnav-links{display:flex;gap:.15rem;flex-shrink:0;}
+.topnav-links{display:flex;align-items:center;gap:.75rem;flex-shrink:1;min-width:0;}
 .topnav-link{font-size:.75rem;font-weight:500;color:var(--mid);padding:.42rem .7rem;border-radius:5px;transition:color .15s,background .15s;white-space:nowrap;}
 .topnav-link.active,.topnav-back.active{color:var(--orange-strong);background:var(--orange-dim);font-weight:600;}
 .topnav-link:hover{color:var(--fg);background:var(--bg);}
 .topnav-race{font-size:.72rem;font-weight:700;color:var(--orange-strong);letter-spacing:.015em;}
 .topnav-right{display:flex;align-items:center;gap:.75rem;flex-shrink:0;}
 .topnav-alltime{font-size:.7rem;color:var(--mid);white-space:nowrap;}
-.account-wrap{position:relative;display:flex;}
+.account-wrap{position:relative;display:flex;flex-shrink:0;}
 .account-icon-btn{
   width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
   border:1.5px solid var(--border);background:var(--card);color:var(--mid);cursor:pointer;
@@ -85,6 +85,12 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .account-dropdown-action:hover{color:var(--fg);}
 .account-dropdown-action.danger{color:var(--orange-strong);}
 .account-dropdown-action.danger:hover{color:#a8330d;}
+.account-dropdown-divider{border-top:1px solid var(--border);margin:.6rem 0;}
+.account-dropdown-confirm{font-size:.72rem;color:var(--mid);line-height:1.4;margin:.5rem 0 .6rem;}
+.account-dropdown-pw{width:100%;font-size:.8rem;padding:.4rem .55rem;border:1.5px solid var(--border);border-radius:6px;margin-bottom:.5rem;background:var(--bg);color:var(--fg);}
+.account-dropdown-confirm-row{display:flex;gap:.5rem;}
+.account-dropdown-confirm-row .account-dropdown-action{width:auto;flex:1;text-align:center;padding:.35rem 0;border:1.5px solid var(--border);border-radius:6px;}
+.account-dropdown-error{font-size:.7rem;color:var(--red);margin-bottom:.4rem;}
 
 /* ── PAGE ── */
 .page{max-width:1100px;margin:0 auto;padding:0 2rem;}
@@ -750,10 +756,12 @@ footer{border-top:1px solid var(--border);background:var(--card);}
     <button type="button" class="topnav-back" id="nav-home">← Home</button>
 
     <div class="topnav-right">
-      <button class="topnav-link" id="edit-plan-btn" type="button">Edit Plan</button>
-      <button class="topnav-link hidden" id="nav-connect" type="button">Connect Strava</button>
-      <span class="topnav-alltime hidden" id="topnav-alltime"></span>
-      <span class="topnav-race" id="nav-race"></span>
+      <div class="topnav-links">
+        <button class="topnav-link" id="edit-plan-btn" type="button">Edit Plan</button>
+        <button class="topnav-link hidden" id="nav-connect" type="button">Connect Strava</button>
+        <span class="topnav-alltime hidden" id="topnav-alltime"></span>
+        <span class="topnav-race" id="nav-race"></span>
+      </div>
       <div class="account-wrap">
         <button class="account-icon-btn" id="account-icon-btn" type="button" aria-label="Account details" aria-haspopup="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -5187,21 +5195,49 @@ document.getElementById('footer-year').textContent = new Date().getFullYear();
 document.getElementById('footer-version').textContent = APP_VERSION;
 
 // ── Account UI ───────────────────────────────────────────────────
+// Toggle/outside-click wiring is one-time; renderAccountDropdown() (called here and
+// from the delete-account flow) only ever replaces the dropdown's innerHTML.
 function renderAccountUI() {
   const btn      = document.getElementById('account-icon-btn');
   const dropdown = document.getElementById('account-dropdown');
-  const session  = getSession();
+  renderAccountDropdown();
+
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const isOpen = dropdown.classList.toggle('open');
+    btn.classList.toggle('open', isOpen);
+  });
+  document.addEventListener('click', () => {
+    dropdown.classList.remove('open');
+    btn.classList.remove('open');
+  });
+}
+
+function renderAccountDropdown() {
+  const dropdown  = document.getElementById('account-dropdown');
+  const session   = getSession();
+  const stravaCfg = getCfg();
+  const stravaStatus = gAthlete
+    ? `Strava: connected as ${esc(gAthlete.firstname || '')} ${esc(gAthlete.lastname || '')}`.trim()
+    : (stravaCfg?.access_token ? 'Strava: connected' : 'Strava: not connected');
 
   if (session) {
     dropdown.innerHTML = `
       <div class="account-dropdown-label">Account</div>
       <div class="account-dropdown-email">${esc(session.email)}</div>
       <div class="account-dropdown-meta" id="account-meta">Synced across devices</div>
-      <button class="account-dropdown-action danger" id="logout-btn" type="button">Log out</button>
+      <div class="account-dropdown-meta">${stravaStatus}</div>
+      <div class="account-dropdown-divider"></div>
+      <button class="account-dropdown-action" id="logout-btn" type="button">Log out</button>
+      <button class="account-dropdown-action danger" id="delete-account-btn" type="button">Delete account</button>
     `;
     document.getElementById('logout-btn').addEventListener('click', () => {
       clearSession();
       window.location.href = '/';
+    });
+    document.getElementById('delete-account-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      renderDeleteAccountConfirm(session);
     });
     fetch(WORKER_URL + '/account', { headers: { 'Authorization': 'Bearer ' + session.token } })
       .then(res => res.ok ? res.json() : null)
@@ -5217,18 +5253,61 @@ function renderAccountUI() {
     dropdown.innerHTML = `
       <div class="account-dropdown-label">Account</div>
       <div class="account-dropdown-meta">Not signed in — your plan is saved in this browser only.</div>
+      <div class="account-dropdown-meta">${stravaStatus}</div>
       <a class="account-dropdown-action" href="/">Create account or log in →</a>
     `;
   }
+}
 
-  btn.addEventListener('click', e => {
+// Swaps the dropdown into a password-confirm step so a stolen/long-lived session
+// token alone can't permanently delete the account — matches the worker's requirement.
+function renderDeleteAccountConfirm(session) {
+  const dropdown = document.getElementById('account-dropdown');
+  dropdown.innerHTML = `
+    <div class="account-dropdown-label">Delete account</div>
+    <div class="account-dropdown-confirm">This permanently deletes your account and synced plan. This cannot be undone. Enter your password to confirm.</div>
+    <div class="account-dropdown-error hidden" id="delete-account-error"></div>
+    <input class="account-dropdown-pw" id="delete-account-pw" type="password" autocomplete="current-password" placeholder="Password">
+    <div class="account-dropdown-confirm-row">
+      <button class="account-dropdown-action" id="delete-account-cancel" type="button">Cancel</button>
+      <button class="account-dropdown-action danger" id="delete-account-confirm" type="button">Delete permanently</button>
+    </div>
+  `;
+  document.getElementById('delete-account-cancel').addEventListener('click', (e) => { e.stopPropagation(); renderAccountDropdown(); });
+  document.getElementById('delete-account-pw').addEventListener('click', e => e.stopPropagation());
+  document.getElementById('delete-account-confirm').addEventListener('click', async (e) => {
     e.stopPropagation();
-    const isOpen = dropdown.classList.toggle('open');
-    btn.classList.toggle('open', isOpen);
-  });
-  document.addEventListener('click', () => {
-    dropdown.classList.remove('open');
-    btn.classList.remove('open');
+    const pw      = document.getElementById('delete-account-pw').value;
+    const errEl   = document.getElementById('delete-account-error');
+    const confirmBtn = document.getElementById('delete-account-confirm');
+    errEl.classList.add('hidden');
+    if (!pw) { errEl.textContent = 'Enter your password.'; errEl.classList.remove('hidden'); return; }
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Deleting…';
+    try {
+      const res = await fetch(WORKER_URL + '/account', {
+        method:  'DELETE',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.token },
+        body:    JSON.stringify({ password: pw }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = data.error || 'Could not delete your account.';
+        errEl.classList.remove('hidden');
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Delete permanently';
+        return;
+      }
+      clearSession();
+      localStorage.removeItem(PLAN_KEY);
+      localStorage.removeItem(AI_OPT_KEY);
+      window.location.href = '/';
+    } catch {
+      errEl.textContent = 'Could not reach the server. Try again.';
+      errEl.classList.remove('hidden');
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Delete permanently';
+    }
   });
 }
 renderAccountUI();

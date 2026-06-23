@@ -77,6 +77,7 @@ export default {
     if (url.pathname === '/plan'          && req.method === 'GET')  return handleGetPlan(req, env, allowOrigin);
     if (url.pathname === '/plan'          && req.method === 'PUT')  return handlePutPlan(req, env, allowOrigin);
     if (url.pathname === '/account'       && req.method === 'GET')  return handleGetAccount(req, env, allowOrigin);
+    if (url.pathname === '/account'       && req.method === 'DELETE') return withRateLimit(req, env, allowOrigin, 'auth', handleDeleteAccount);
 
     if (url.pathname === '/ai' && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'ai', handleAi);
 
@@ -176,6 +177,27 @@ async function handleGetAccount(req, env, allowOrigin) {
   const user = await env.DB.prepare('SELECT email, created_at FROM users WHERE id = ?').bind(userId).first();
   if (!user) return json({ error: 'Account not found' }, 404, allowOrigin);
   return json({ email: user.email, createdAt: user.created_at }, 200, allowOrigin);
+}
+
+async function handleDeleteAccount(req, env, allowOrigin) {
+  if (!env.DB) return json({ error: 'Accounts not configured — bind a D1 database as DB' }, 503, allowOrigin);
+  const userId = await requireSession(req, env);
+  if (!userId) return json({ error: 'Not authenticated' }, 401, allowOrigin);
+
+  let body;
+  try { body = await req.json(); }
+  catch { return json({ error: 'Invalid JSON body' }, 400, allowOrigin); }
+
+  const user = await env.DB.prepare('SELECT password_hash FROM users WHERE id = ?').bind(userId).first();
+  if (!user) return json({ error: 'Account not found' }, 404, allowOrigin);
+  // Require the password again, not just a valid session token, so a stolen/long-lived
+  // token alone can't be used to permanently delete the account.
+  const ok = await verifyPassword(String(body.password || ''), user.password_hash);
+  if (!ok) return json({ error: 'Incorrect password' }, 401, allowOrigin);
+
+  await env.DB.prepare('DELETE FROM plans WHERE user_id = ?').bind(userId).run();
+  await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
+  return json({ ok: true }, 200, allowOrigin);
 }
 
 // ── Plan sync ────────────────────────────────────────────────────
@@ -404,7 +426,7 @@ function b64decode(str) {
 function corsHeaders(allowOrigin) {
   return {
     'Access-Control-Allow-Origin':  allowOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 }
