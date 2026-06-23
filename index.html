@@ -117,12 +117,6 @@ section:first-of-type{border-top:none;}
 .auth-mark svg{width:100%;height:100%;display:block;}
 .auth-title{font-size:1.5rem;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin:0 0 .4rem;}
 .auth-lead{font-size:.92rem;color:var(--mid);margin:0 0 1.5rem;line-height:1.5;}
-.auth-actions{display:flex;flex-direction:column;gap:.6rem;}
-.strava-btn{font-family:inherit;font-size:.92rem;font-weight:700;border-radius:.6rem;padding:.75rem 1.1rem;cursor:pointer;border:1.5px solid var(--border);background:var(--card);color:var(--fg);display:flex;align-items:center;justify-content:center;gap:.5rem;text-decoration:none;width:100%;min-height:44px;transition:border-color .15s;}
-.strava-btn:hover{border-color:var(--orange-strong);}
-.strava-btn svg{width:18px;height:18px;fill:var(--orange);}
-.divider{display:flex;align-items:center;gap:.8rem;margin:1.2rem 0;color:var(--mid);font-size:.74rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
-.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border);}
 .auth-form{display:flex;flex-direction:column;gap:.7rem;}
 .auth-field{display:flex;flex-direction:column;gap:.3rem;}
 .auth-label{font-size:.76rem;font-weight:600;color:var(--fg);}
@@ -197,7 +191,7 @@ section:first-of-type{border-top:none;}
           <button class="btn btn-primary btn-lg" type="button" data-go-auth="register">Get started</button>
           <button class="btn btn-secondary btn-lg" type="button" data-go-auth="login">Log in</button>
         </div>
-        <p class="hero-note reveal reveal-3">Create a free account or connect Strava to start. Your plan syncs across every device.</p>
+        <p class="hero-note reveal reveal-3">Create a free account to start — then connect Strava (optional) from inside the dashboard. Your plan syncs across every device.</p>
       </div>
     </section>
 
@@ -367,25 +361,14 @@ section:first-of-type{border-top:none;}
         <button class="auth-link" type="button" id="auth-toggle">Log in</button>
       </p>
 
-      <div class="divider">or</div>
-
-      <div class="auth-actions">
-        <a class="strava-btn" id="connect-btn" href="#">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-          Connect with Strava
-        </a>
-      </div>
-
-      <p class="auth-foot">Your plan syncs across your devices and stays private to your account.</p>
+      <p class="auth-foot">Your plan syncs across your devices and stays private to your account. Connect Strava once you're in, from the dashboard.</p>
     </div>
   </div>
 </div>
 
 <script>
-const STRAVA_CLIENT_ID = '250989';
 const WORKER_URL       = 'https://strava-auth.jmdashboard.workers.dev';
 const SESSION_KEY      = 'jm_session_v1';
-const OAUTH_STATE_KEY  = 'jm_oauth_state';
 
 const viewLanding = document.getElementById('view-landing');
 const viewAuth    = document.getElementById('view-auth');
@@ -452,17 +435,6 @@ authToggle.addEventListener('click', () => {
   location.hash = (authMode === 'register') ? 'login' : 'get-started';
 });
 window.addEventListener('hashchange', routeFromHash);
-
-// ── Strava OAuth (CSRF state preserved) ──
-document.getElementById('connect-btn').addEventListener('click', (e) => {
-  e.preventDefault();
-  // CSRF protection: send a random state and stash it so the /dashboard/ callback can verify it.
-  const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
-  try { sessionStorage.setItem(OAUTH_STATE_KEY, state); } catch {}
-  const redirectUri = window.location.origin + '/dashboard/';
-  const p = new URLSearchParams({ client_id:STRAVA_CLIENT_ID, response_type:'code', redirect_uri:redirectUri, approval_prompt:'auto', scope:'activity:read_all,read', state });
-  window.location.href = 'https://www.strava.com/oauth/authorize?' + p;
-});
 
 // ── Email / password auth ──
 async function submitAuth(path, email, password, errorEl) {
