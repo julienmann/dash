@@ -451,9 +451,14 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .sport-add-dropdown{
   position:fixed;z-index:200;
   background:var(--card);border:1.5px solid var(--border);border-radius:10px;
-  padding:.3rem;min-width:155px;box-shadow:var(--shadow-md);display:none;
+  padding:.3rem;min-width:170px;max-height:min(70vh,420px);overflow-y:auto;
+  box-shadow:var(--shadow-md);display:none;
 }
 .sport-add-dropdown.open{display:block;}
+.sport-add-heading{
+  padding:.3rem .6rem .15rem;font-size:.64rem;font-weight:700;text-transform:uppercase;
+  letter-spacing:.03em;color:var(--mid);
+}
 .sport-add-option{
   padding:.38rem .6rem;border-radius:6px;font-size:.75rem;font-weight:600;
   color:var(--fg);cursor:pointer;transition:background .1s;width:100%;text-align:left;
@@ -2794,9 +2799,33 @@ function typeClass(t) {
 }
 
 function typeLabel(t) {
-  const map = { Run:'Run',TrailRun:'Trail Run',Ride:'Ride',VirtualRide:'Virtual Ride',EBikeRide:'E-Bike',GravelRide:'Gravel',MountainBikeRide:'MTB',Swim:'Swim',Walk:'Walk',Hike:'Hike',Yoga:'Yoga',WeightTraining:'Weights',Workout:'Workout',Rowing:'Row',Crossfit:'CrossFit',AlpineSki:'Ski',NordicSki:'Nordic',Snowboard:'Snowboard',IceSkate:'Skate',Kayaking:'Kayak',StandUpPaddling:'SUP' };
+  const map = {
+    Run:'Run',TrailRun:'Trail Run',VirtualRun:'Virtual Run',Ride:'Ride',VirtualRide:'Virtual Ride',
+    EBikeRide:'E-Bike',EMountainBikeRide:'E-MTB',GravelRide:'Gravel',MountainBikeRide:'MTB',
+    Velomobile:'Velomobile',Handcycle:'Handcycle',Swim:'Swim',VirtualRow:'Virtual Row',Walk:'Walk',
+    Hike:'Hike',Yoga:'Yoga',Pilates:'Pilates',WeightTraining:'Weights',Workout:'Workout',
+    HighIntensityIntervalTraining:'HIIT',Rowing:'Row',Crossfit:'CrossFit',Elliptical:'Elliptical',
+    StairStepper:'Stair Stepper',AlpineSki:'Ski',BackcountrySki:'Backcountry Ski',NordicSki:'Nordic',
+    RollerSki:'Roller Ski',Snowboard:'Snowboard',Snowshoe:'Snowshoe',IceSkate:'Skate',
+    InlineSkate:'Inline Skate',Skateboard:'Skateboard',Kayaking:'Kayak',Canoeing:'Canoe',
+    StandUpPaddling:'SUP',Rowing:'Row',Sail:'Sail',Surfing:'Surf',Kitesurf:'Kitesurf',
+    Windsurf:'Windsurf',RockClimbing:'Climbing',Golf:'Golf',Soccer:'Soccer',Tennis:'Tennis',
+    Squash:'Squash',Racquetball:'Racquetball',Badminton:'Badminton',TableTennis:'Table Tennis',
+    Pickleball:'Pickleball',Wheelchair:'Wheelchair',
+  };
   return map[t] || t;
 }
+
+// ── Full Strava activity "type" enum, for the sport-add picker ──
+const ALL_STRAVA_TYPES = [
+  'Run','TrailRun','VirtualRun','Ride','VirtualRide','EBikeRide','EMountainBikeRide','GravelRide',
+  'MountainBikeRide','Velomobile','Handcycle','Swim','VirtualRow','Walk','Hike','Yoga','Pilates',
+  'WeightTraining','Workout','HighIntensityIntervalTraining','Rowing','Crossfit','Elliptical',
+  'StairStepper','AlpineSki','BackcountrySki','NordicSki','RollerSki','Snowboard','Snowshoe',
+  'IceSkate','InlineSkate','Skateboard','Kayaking','Canoeing','StandUpPaddling','Sail','Surfing',
+  'Kitesurf','Windsurf','RockClimbing','Golf','Soccer','Tennis','Squash','Racquetball','Badminton',
+  'TableTennis','Pickleball','Wheelchair',
+];
 
 // ── Period helpers ───────────────────────────────────────────────
 function getPeriodRange(period) {
@@ -3242,24 +3271,23 @@ function openSportAddDropdown() {
   const btnRect = document.getElementById('sport-add-btn').getBoundingClientRect();
   dropdown.style.top  = `${btnRect.bottom + 6}px`;
   dropdown.style.left = `${btnRect.left}px`;
-  const available = gActivities
-    ? [...new Set(gActivities.map(a => a.type))]
-        .filter(t => !DEFAULT_COVERED_TYPES.has(t) && !gCustomSports.includes(t))
-        .sort((a, b) => typeLabel(a).localeCompare(typeLabel(b)))
-    : [];
-  if (available.length) {
-    dropdown.innerHTML = available.map(t =>
-      `<button class="sport-add-option" data-type="${t}">${typeLabel(t)}</button>`
-    ).join('');
-    dropdown.querySelectorAll('.sport-add-option').forEach(btn =>
-      btn.addEventListener('click', () => {
-        addCustomSport(btn.dataset.type);
-        dropdown.classList.remove('open');
-      })
-    );
-  } else {
-    dropdown.innerHTML = '<div class="sport-add-empty">No other sport types found</div>';
-  }
+  const doneTypes = gActivities ? new Set(gActivities.map(a => a.type)) : new Set();
+  const candidates = [...new Set([...ALL_STRAVA_TYPES, ...doneTypes])]
+    .filter(t => !DEFAULT_COVERED_TYPES.has(t) && !gCustomSports.includes(t));
+  const done  = candidates.filter(t => doneTypes.has(t)).sort((a, b) => typeLabel(a).localeCompare(typeLabel(b)));
+  const other = candidates.filter(t => !doneTypes.has(t)).sort((a, b) => typeLabel(a).localeCompare(typeLabel(b)));
+
+  const optionHtml = t => `<button class="sport-add-option" data-type="${t}">${typeLabel(t)}</button>`;
+  let html = '';
+  if (done.length)  html += `<div class="sport-add-heading">Your sports</div>` + done.map(optionHtml).join('');
+  if (other.length) html += `<div class="sport-add-heading">Other sports</div>` + other.map(optionHtml).join('');
+  dropdown.innerHTML = html || '<div class="sport-add-empty">No other sport types found</div>';
+  dropdown.querySelectorAll('.sport-add-option').forEach(btn =>
+    btn.addEventListener('click', () => {
+      addCustomSport(btn.dataset.type);
+      dropdown.classList.remove('open');
+    })
+  );
   dropdown.classList.add('open');
 }
 
