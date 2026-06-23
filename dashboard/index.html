@@ -3779,6 +3779,10 @@ function forceCreatePlan() {
   document.getElementById('builder-reset').classList.add('hidden');
   document.getElementById('nav-home').classList.add('hidden');
   document.getElementById('edit-plan-btn').classList.add('hidden');
+  // The topnav race countdown isn't part of BUILDER_VIEWS and renders synchronously
+  // at boot off DEFAULT_PLAN — clear it so "Race in X days" doesn't leak through
+  // before there's a real race to count down to.
+  document.getElementById('nav-race').textContent = '';
   document.getElementById('builder-title').textContent = 'Create Your Training Plan';
   DRAFT_PLAN = JSON.parse(JSON.stringify(DEFAULT_PLAN));
   DRAFT_BASELINE = null;
