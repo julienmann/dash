@@ -3558,7 +3558,11 @@ function renderFitnessChart() {
       // reading just reflects the plan ramping up, and calling it out hurts motivation.
       const FITNESS_GRACE_DAYS = 14;
       if (todayIdx < FITNESS_GRACE_DAYS) {
-        msg = '<strong>Settling in</strong> — your actual fitness curve builds as you log the first couple of weeks of training.';
+        // Still too early to call it "ahead" or "behind" with confidence, but a good
+        // pace is worth saying outright rather than always hedging with "settling in".
+        msg = ratio >= 0.92
+          ? '<strong>Off to a good start</strong> — your training load is tracking well as your fitness curve builds.'
+          : '<strong>Settling in</strong> — your actual fitness curve builds as you log the first couple of weeks of training.';
       } else if (ratio >= 1.05) msg = '<strong style="color:var(--orange-strong)">Ahead of plan</strong> — your training load is running higher than projected. Upcoming sessions may be nudged up.';
       else if (ratio <= 0.92)   msg = '<strong style="color:var(--orange-strong)">Behind plan</strong> — actual load is below projection. The plan will ease upcoming sessions to help you catch up safely.';
       else                      msg = '<strong>On track</strong> — your actual fitness is tracking the projected build closely.';
