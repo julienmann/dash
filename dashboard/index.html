@@ -448,24 +448,20 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
   cursor:pointer;transition:all .15s;white-space:nowrap;display:flex;align-items:center;gap:.2rem;
 }
 .sport-tab-add:hover{border-color:var(--mid);color:var(--fg);}
-.sport-add-dropdown{
-  position:fixed;z-index:200;
-  background:var(--card);border:1.5px solid var(--border);border-radius:10px;
-  padding:.3rem;min-width:170px;max-height:min(70vh,420px);overflow-y:auto;
-  box-shadow:var(--shadow-md);display:none;
-}
-.sport-add-dropdown.open{display:block;}
+.sport-add-modal{max-width:340px;}
+.sport-add-content{margin-top:.85rem;max-height:60vh;overflow-y:auto;}
 .sport-add-heading{
-  padding:.3rem .6rem .15rem;font-size:.64rem;font-weight:700;text-transform:uppercase;
+  padding:.5rem .2rem .3rem;font-size:.64rem;font-weight:700;text-transform:uppercase;
   letter-spacing:.03em;color:var(--mid);
 }
+.sport-add-heading:first-child{padding-top:0;}
 .sport-add-option{
-  padding:.38rem .6rem;border-radius:6px;font-size:.75rem;font-weight:600;
+  padding:.5rem .6rem;border-radius:6px;font-size:.8rem;font-weight:600;
   color:var(--fg);cursor:pointer;transition:background .1s;width:100%;text-align:left;
   background:none;border:none;display:block;
 }
 .sport-add-option:hover{background:var(--bg);}
-.sport-add-empty{padding:.38rem .6rem;font-size:.72rem;color:var(--mid);}
+.sport-add-empty{padding:.5rem .2rem;font-size:.78rem;color:var(--mid);}
 
 /* ── STAT CARDS ── */
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1rem;}
@@ -893,7 +889,6 @@ footer{border-top:1px solid var(--border);background:var(--card);}
     <button class="sport-tab" data-sport="hike">Hiking</button>
     <div class="sport-tab-add-wrap">
       <button class="sport-tab-add" id="sport-add-btn">+ Add</button>
-      <div class="sport-add-dropdown" id="sport-add-dropdown"></div>
     </div>
   </div>
 
@@ -1240,6 +1235,15 @@ footer{border-top:1px solid var(--border);background:var(--card);}
   <div class="day-popup" id="day-popup">
     <button class="day-popup-close" id="day-popup-close" aria-label="Close">✕</button>
     <div id="day-popup-content"></div>
+  </div>
+</div>
+
+<!-- ── Add sport popup ── -->
+<div class="day-popup-overlay" id="sport-add-overlay">
+  <div class="day-popup sport-add-modal" id="sport-add-modal">
+    <button class="day-popup-close" id="sport-add-close" aria-label="Close">✕</button>
+    <div class="day-popup-label">Add a sport</div>
+    <div id="sport-add-content" class="sport-add-content"></div>
   </div>
 </div>
 
@@ -3262,15 +3266,8 @@ function removeCustomSport(type) {
 }
 
 function openSportAddDropdown() {
-  const dropdown = document.getElementById('sport-add-dropdown');
-  if (dropdown.classList.contains('open')) { dropdown.classList.remove('open'); return; }
-  // .sport-tabs scrolls horizontally (overflow-x:auto), which clips any absolutely-positioned
-  // child regardless of z-index — so the dropdown is reparented to <body> and fixed-positioned
-  // off the button's own rect, escaping that clipping ancestor entirely.
-  document.body.appendChild(dropdown);
-  const btnRect = document.getElementById('sport-add-btn').getBoundingClientRect();
-  dropdown.style.top  = `${btnRect.bottom + 6}px`;
-  dropdown.style.left = `${btnRect.left}px`;
+  const overlay = document.getElementById('sport-add-overlay');
+  const content = document.getElementById('sport-add-content');
   const doneTypes = gActivities ? new Set(gActivities.map(a => a.type)) : new Set();
   const candidates = [...new Set([...ALL_STRAVA_TYPES, ...doneTypes])]
     .filter(t => !DEFAULT_COVERED_TYPES.has(t) && !gCustomSports.includes(t));
@@ -3281,15 +3278,17 @@ function openSportAddDropdown() {
   let html = '';
   if (done.length)  html += `<div class="sport-add-heading">Your sports</div>` + done.map(optionHtml).join('');
   if (other.length) html += `<div class="sport-add-heading">Other sports</div>` + other.map(optionHtml).join('');
-  dropdown.innerHTML = html || '<div class="sport-add-empty">No other sport types found</div>';
-  dropdown.querySelectorAll('.sport-add-option').forEach(btn =>
+  content.innerHTML = html || '<div class="sport-add-empty">No other sport types found</div>';
+  content.querySelectorAll('.sport-add-option').forEach(btn =>
     btn.addEventListener('click', () => {
       addCustomSport(btn.dataset.type);
-      dropdown.classList.remove('open');
+      closeSportAddDropdown();
     })
   );
-  dropdown.classList.add('open');
+  overlay.classList.add('open');
 }
+
+function closeSportAddDropdown() { document.getElementById('sport-add-overlay').classList.remove('open'); }
 
 function loadCustomSports() {
   try { gCustomSports = JSON.parse(localStorage.getItem(CUSTOM_SPORTS_KEY)) || []; } catch { gCustomSports = []; }
@@ -5261,7 +5260,10 @@ document.getElementById('day-popup-close').addEventListener('click', closeDayPop
 dayPopupOverlay.addEventListener('click', e => { if (e.target === dayPopupOverlay) closeDayPopup(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && dayPopupOverlay.classList.contains('open')) closeDayPopup(); });
 document.getElementById('sport-add-btn').addEventListener('click', e => { e.stopPropagation(); openSportAddDropdown(); });
-document.addEventListener('click', () => document.getElementById('sport-add-dropdown')?.classList.remove('open'));
+const sportAddOverlay = document.getElementById('sport-add-overlay');
+document.getElementById('sport-add-close').addEventListener('click', closeSportAddDropdown);
+sportAddOverlay.addEventListener('click', e => { if (e.target === sportAddOverlay) closeSportAddDropdown(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && sportAddOverlay.classList.contains('open')) closeSportAddDropdown(); });
 
 function openDayPopup(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
