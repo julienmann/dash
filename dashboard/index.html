@@ -5274,8 +5274,9 @@ document.getElementById('footer-year').textContent = new Date().getFullYear();
 document.getElementById('footer-version').textContent = APP_VERSION;
 
 // ── Account UI ───────────────────────────────────────────────────
-// Toggle/outside-click wiring is one-time; renderAccountDropdown() (called here and
-// from the delete-account flow) only ever replaces the dropdown's innerHTML.
+// Toggle/outside-click wiring is one-time; renderAccountDropdown() re-runs on open
+// (here and from the delete-account flow) so Strava's async connect/refresh — which
+// can resolve well after this initial render — is reflected instead of a stale snapshot.
 function renderAccountUI() {
   const btn      = document.getElementById('account-icon-btn');
   const dropdown = document.getElementById('account-dropdown');
@@ -5283,6 +5284,8 @@ function renderAccountUI() {
 
   btn.addEventListener('click', e => {
     e.stopPropagation();
+    const willOpen = !dropdown.classList.contains('open');
+    if (willOpen) renderAccountDropdown();
     const isOpen = dropdown.classList.toggle('open');
     btn.classList.toggle('open', isOpen);
   });
