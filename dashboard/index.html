@@ -1241,6 +1241,23 @@ footer{border-top:1px solid var(--border);background:var(--card);}
     </div>
   </div>
 
+  <!-- AI coach edit — free-text instruction to revise the current draft plan via AI,
+       reviewed in the editor above before the athlete saves it. -->
+  <div id="ai-edit-body" class="hidden">
+    <div class="aiq-step-card aiq-step">
+      <div class="aiq-step-title">Edit with AI coach</div>
+      <p class="aiq-step-sub">Describe the change you want in plain language — the coach revises your existing plan and you review it before saving.</p>
+      <div class="aiq-solo-field">
+        <textarea class="form-input aiq-big-input" id="ai-edit-prompt" rows="4" placeholder="e.g. Add a fourth recovery week before the peak phase, or swap Tuesday's tempo run for hill repeats"></textarea>
+      </div>
+    </div>
+    <div id="ai-edit-error" class="builder-error hidden" role="alert"></div>
+    <div class="aiq-nav">
+      <button class="builder-btn builder-btn-secondary" id="ai-edit-cancel" type="button">Cancel</button>
+      <button class="builder-btn builder-btn-primary" id="ai-edit-submit" type="button">✦ Revise plan</button>
+    </div>
+  </div>
+
   <!-- Pro-plan questionnaire — same one-question-at-a-time format as the AI builder,
        just four quick questions before the spec is scaled to fit them. -->
   <div id="pro-q-body" class="hidden">
@@ -3930,6 +3947,7 @@ function openPlanBuilder() {
   DRAFT_BASELINE = null;
   document.getElementById('builder-error').classList.add('hidden');
   document.getElementById('ai-builder-body').classList.add('hidden');
+  document.getElementById('ai-edit-body').classList.add('hidden');
   document.getElementById('pro-q-body').classList.add('hidden');
   document.getElementById('plan-builder').classList.remove('hidden');
   document.getElementById('builder-actions').classList.add('hidden');
@@ -4042,6 +4060,7 @@ function forceCreatePlan() {
   BUILDER_VIEWS.forEach(id => document.getElementById(id).classList.add('hidden'));
   document.getElementById('builder-error').classList.add('hidden');
   document.getElementById('ai-builder-body').classList.add('hidden');
+  document.getElementById('ai-edit-body').classList.add('hidden');
   document.getElementById('pro-q-body').classList.add('hidden');
   document.getElementById('plan-builder').classList.remove('hidden');
   document.getElementById('builder-cancel-top').classList.add('hidden');
@@ -4074,6 +4093,99 @@ function closePlanBuilder() {
   if (location.hash === '#/builder') history.replaceState(null, '', location.pathname + location.search);
   setActiveNav('home');
 }
+
+// AI coach edit — a free-text instruction revises DRAFT_PLAN in place via the same
+// plan schema/validator as the AI questionnaire, so the athlete reviews the result in
+// the regular editor (and can still Cancel or Save & apply) rather than it saving directly.
+function openAiEditPlan() {
+  document.getElementById('builder-body').classList.add('hidden');
+  document.getElementById('builder-actions').classList.add('hidden');
+  document.getElementById('ai-edit-error').classList.add('hidden');
+  document.getElementById('ai-edit-prompt').value = '';
+  document.getElementById('ai-edit-body').classList.remove('hidden');
+  document.getElementById('ai-edit-prompt').focus();
+}
+
+function closeAiEditPlan() {
+  document.getElementById('ai-edit-body').classList.add('hidden');
+  document.getElementById('builder-body').classList.remove('hidden');
+  document.getElementById('builder-actions').classList.remove('hidden');
+  renderPlanBuilderSimple();
+}
+
+const AI_EDIT_SYSTEM_PROMPT =
+`You are a certified endurance coach editing an athlete's existing training plan based on a specific request. You are given the plan's current JSON and a free-text instruction describing what to change.
+
+Apply ONLY the requested change. Preserve every other field, phase, and session exactly as given unless the change logically requires touching it (e.g. shifting later weeks after inserting a phase, or rebalancing volume after removing a session type). Do not regenerate the whole plan from scratch and do not "improve" parts the athlete didn't ask about. Keep session names specific and descriptive, consistent with the existing plan's style.
+
+Respond ONLY with a single valid JSON object — no markdown formatting, no commentary before or after — matching exactly this schema:
+
+{"raceName":"string","raceDate":"YYYY-MM-DD","raceDuration":integer minutes (goal finish time),"raceDistances":{"swim":"e.g. '1.9 km' or ''","bike":"e.g. '90 km' or ''","run":"e.g. '21.1 km' or ''"},"trainStart":"YYYY-MM-DD","phases":[{"name":"string","weeks":integer >= 1,"hrs":"string e.g. '5–7 hrs/wk'","color":"#RRGGBB","focus":"one sentence describing this phase's training emphasis","recoveryEvery":integer >= 0 (0 = no recovery weeks; N = every Nth week uses recoveryTemplate),"template":[[type,label,durationMinutes], ... exactly 7 entries Mon–Sun],"recoveryTemplate":same shape as template or null if recoveryEvery is 0}],"raceEvents":[{"date":"YYYY-MM-DD","label":"string","duration":integer minutes,"weekTemplate":same shape as template or null}]}
+
+Hard constraints:
+- "type" must be one of: "rest","swim","run","bike","brick","race". "duration" is 0 for rest.
+- Each template/recoveryTemplate/weekTemplate has exactly 7 entries: Monday through Sunday.
+- The final phase must remain (or become) the taper, with recoveryEvery: 0, unless the instruction explicitly says otherwise.
+- Keep phases[].weeks summing to roughly the same total weeks as the current plan unless the instruction explicitly changes dates, phase count, or duration.
+- Return the COMPLETE revised plan, not just the changed parts.`;
+
+function buildAiEditContext(instruction) {
+  return `CURRENT PLAN (JSON):\n${JSON.stringify(DRAFT_PLAN)}\n\nREQUESTED CHANGE:\n${instruction}`;
+}
+
+let aiEditAbort = null;
+
+async function submitAiEditPlan() {
+  const errEl = document.getElementById('ai-edit-error');
+  const btn = document.getElementById('ai-edit-submit');
+  errEl.classList.add('hidden');
+  const instruction = document.getElementById('ai-edit-prompt').value.trim();
+  if (!instruction) {
+    errEl.textContent = 'Describe the change you want first.';
+    errEl.classList.remove('hidden');
+    return;
+  }
+
+  const controller = new AbortController();
+  aiEditAbort = controller;
+  btn.disabled = true;
+  btn.textContent = 'Revising…';
+
+  try {
+    const data = await aiFetch({
+      candidates: aiModelCandidates(AI_PLAN_FALLBACKS),
+      system: AI_EDIT_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: buildAiEditContext(instruction) }],
+      maxTokens: 8192,
+      signal: controller.signal,
+    });
+    if (data.stop_reason === 'max_tokens') {
+      throw new Error('the revised plan was too long to finish generating — try a narrower request');
+    }
+    const text    = data.content?.[0]?.text || '';
+    const jsonStr = extractJson(text);
+    if (!jsonStr) throw new Error('No JSON in response');
+
+    DRAFT_PLAN = sanitizeAiPlan(JSON.parse(jsonStr));
+    closeAiEditPlan();
+  } catch (e) {
+    if (e.name !== 'AbortError') {
+      console.error('AI plan edit:', e);
+      errEl.textContent = `Couldn't revise the plan: ${e.message}. Please try again.`;
+      errEl.classList.remove('hidden');
+    }
+  } finally {
+    aiEditAbort = null;
+    btn.disabled = false;
+    btn.textContent = '✦ Revise plan';
+  }
+}
+
+document.getElementById('ai-edit-submit').addEventListener('click', submitAiEditPlan);
+document.getElementById('ai-edit-cancel').addEventListener('click', () => {
+  if (aiEditAbort) { aiEditAbort.abort(); return; }
+  closeAiEditPlan();
+});
 
 function swapAdjacent(arr, i, j) {
   if (j < 0 || j >= arr.length) return;
@@ -4207,10 +4319,12 @@ function renderPlanBuilderSimple() {
     <div class="builder-section-title">Tune-up Races</div>
     <div class="bldr-simple-list">${eventRows}</div>
     <button class="builder-add-btn" id="add-event-btn" type="button">+ Add Race Event</button>
+    <button class="builder-add-btn builder-cta-btn" id="bldr-ai-edit-btn" type="button">✦ Edit with AI coach</button>
     <button class="builder-add-btn builder-cta-btn" id="bldr-advanced-btn" type="button">Advanced edit →</button>
   `;
   attachBuilderListeners(renderPlanBuilderSimple);
   document.getElementById('bldr-advanced-btn').addEventListener('click', renderPlanBuilder);
+  document.getElementById('bldr-ai-edit-btn').addEventListener('click', openAiEditPlan);
 }
 
 function renderPlanBuilder() {
