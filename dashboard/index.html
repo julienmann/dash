@@ -743,10 +743,13 @@ textarea.aiq-big-input{line-height:1.4;min-height:7.5rem;}
 }
 @media(max-width:480px){
   .race-hdr-right{display:none;}
-  /* Collapse the inline nav links into a wrap-friendly row instead of hiding them outright. */
-  .topnav-links{display:flex;flex-wrap:wrap;gap:.2rem;justify-content:flex-end;}
+  /* Keep the nav on a single row: drop the "Home" label to an icon-only arrow and let the
+     race text truncate, instead of wrapping (wrapping clipped inside the fixed-height topnav). */
+  .topnav-back-label{display:none;}
+  .topnav-links{gap:.4rem;}
   .topnav-link{font-size:.72rem;padding:.4rem .55rem;}
   .topnav-cta-btn{font-size:.72rem;padding:.4rem .65rem;}
+  .topnav-race{max-width:9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 }
 /* Mobile Safari zooms the whole page on focus of any text input under 16px —
    bump every form control to 16px on touch-sized viewports without touching
@@ -802,7 +805,7 @@ textarea.aiq-big-input{line-height:1.4;min-height:7.5rem;}
 ══════════════════════════════════════════ -->
 <nav class="topnav">
   <div class="topnav-inner">
-    <button type="button" class="topnav-back" id="nav-home">← Home</button>
+    <button type="button" class="topnav-back" id="nav-home">← <span class="topnav-back-label">Home</span></button>
 
     <div class="topnav-right">
       <div class="topnav-links">
