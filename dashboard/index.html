@@ -4547,17 +4547,15 @@ function applyProPlanInjuries(phases, injuriesText) {
   });
 }
 
-// Load a pro plan into the draft and re-render the builder so the user can review/tweak it.
-function applyProPlan(id, answers) {
+// Builds the answered pro plan and saves it directly — no customization screen,
+// since the questionnaire already collected everything needed to fit it to the
+// athlete. Returns false (leaving the questionnaire open) if the plan doesn't
+// validate, so its own error slot can surface the problem.
+async function applyProPlan(id, answers) {
   const plan = buildProPlanFromAnswers(id, answers);
-  if (!plan) { toast('That plan could not be loaded.', { error: true }); return; }
-  if (isDraftDirty() && !confirm('Replace your current edits with this plan? Unsaved changes will be lost.')) return;
-  DRAFT_PLAN = plan;
-  markDraftBaseline();
-  document.getElementById('builder-error').classList.add('hidden');
-  document.getElementById('builder-actions').classList.remove('hidden');
-  renderPlanBuilderSimple();
-  window.scrollTo(0, 0);
+  if (!plan) { toast('That plan could not be loaded.', { error: true }); return false; }
+  if (isDraftDirty() && !confirm('Replace your current edits with this plan? Unsaved changes will be lost.')) return false;
+  return validateAndSavePlan(plan, document.getElementById('pro-q-error'));
 }
 
 // Pro-plan questionnaire — same one-question-at-a-time wizard format as the AI
@@ -4635,8 +4633,6 @@ document.getElementById('pro-q-nav-back').addEventListener('click', () => {
 document.getElementById('pro-q-nav-next').addEventListener('click', () => {
   if (!proQValidateStep()) return;
   if (proQStep < PRO_Q_STEP_COUNT - 1) { proQShowStep(proQStep + 1); return; }
-  document.getElementById('pro-q-body').classList.add('hidden');
-  document.getElementById('builder-body').classList.remove('hidden');
   applyProPlan(proQAthleteId, {
     raceName:   document.getElementById('pro-q-race-name').value.trim(),
     raceDate:   document.getElementById('pro-q-race-date').value,
@@ -5431,19 +5427,27 @@ document.getElementById('builder-reset').addEventListener('click', () => {
   location.reload();
 });
 
-document.getElementById('builder-save').addEventListener('click', async () => {
-  const errEl = document.getElementById('builder-error');
-  const err   = validatePlan(DRAFT_PLAN);
+// Shared by the manual builder's "Save & apply" and the pro-plan questionnaire's
+// "Load plan" — validates, persists, and reloads. Returns false (and shows `errEl`)
+// without reloading if the plan doesn't pass validation, so a caller can keep its
+// own screen open to let the athlete fix it.
+async function validateAndSavePlan(plan, errEl) {
+  const err = validatePlan(plan);
   if (err) {
     errEl.textContent = err;
     errEl.classList.remove('hidden');
-    return;
+    return false;
   }
-  await savePlan(DRAFT_PLAN);
+  await savePlan(plan);
   localStorage.removeItem(AI_OPT_KEY);
   // Persist a one-shot flag so the post-reload page can confirm the save was applied.
   try { sessionStorage.setItem('jm_saved_toast', '1'); } catch {}
   location.reload();
+  return true;
+}
+
+document.getElementById('builder-save').addEventListener('click', () => {
+  validateAndSavePlan(DRAFT_PLAN, document.getElementById('builder-error'));
 });
 
 // ════════════════════════════════════════════
