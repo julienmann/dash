@@ -55,7 +55,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
    group — and the account button inside it — to the right edge even when nav-home is
    hidden (e.g. the forced create-plan screen): space-between collapses to flex-start
    with only one visible child, which would otherwise leave it stranded on the left. */
-.topnav-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;align-items:center;height:48px;gap:1rem;}
+.topnav-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;align-items:center;min-height:48px;gap:1rem;}
 .topnav-back{font-size:.75rem;font-weight:500;color:var(--mid);display:flex;align-items:center;gap:.3rem;transition:color .15s;flex-shrink:0;background:none;border:none;cursor:pointer;padding:0;}
 .topnav-back:hover{color:var(--fg);}
 .topnav-links{display:flex;align-items:center;gap:.75rem;flex-shrink:1;min-width:0;}
@@ -65,7 +65,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .topnav-cta-btn{font-size:.75rem;font-weight:700;color:#fff;background:var(--orange-strong);padding:.42rem .85rem;border-radius:6px;white-space:nowrap;border:none;transition:opacity .15s;}
 .topnav-cta-btn:hover{opacity:.88;}
 .topnav-race{font-size:.72rem;font-weight:700;color:var(--orange-strong);letter-spacing:.015em;}
-.topnav-right{display:flex;align-items:center;gap:.75rem;flex-shrink:0;margin-left:auto;}
+.topnav-right{display:flex;align-items:center;gap:.75rem;flex-shrink:1;min-width:0;margin-left:auto;}
 .topnav-alltime{font-size:.7rem;color:var(--mid);white-space:nowrap;}
 .account-wrap{position:relative;display:flex;flex-shrink:0;}
 .account-icon-btn{
@@ -744,6 +744,22 @@ footer{border-top:1px solid var(--border);background:var(--card);}
   .topnav-link{font-size:.72rem;padding:.4rem .55rem;}
   .topnav-cta-btn{font-size:.72rem;padding:.4rem .65rem;}
 }
+/* Mobile Safari zooms the whole page on focus of any text input under 16px —
+   bump every form control to 16px on touch-sized viewports without touching
+   the desktop type scale. */
+@media(max-width:600px){
+  .form-input,.ai-ask-input,.ai-key-input,.account-dropdown-pw,select,textarea{font-size:16px;}
+  .cal-nav-btn,.account-icon-btn,.builder-close,.day-popup-close{min-width:44px;min-height:44px;}
+  .builder-card{padding:1rem;}
+}
+/* The per-day phase template grid (Type / Label / Min columns) is desktop-dense and
+   forces sideways scrolling within its own wrapper on phone widths, burying the
+   duration field off-screen. Narrow the fixed columns instead so the whole row fits. */
+@media(max-width:480px){
+  .tmpl-table{grid-template-columns:2.1rem 4.8rem 1fr 3.5rem;gap:.3rem .35rem;min-width:0;}
+  .tmpl-table .form-input{padding:.35rem .3rem;font-size:16px;}
+  .tmpl-day-label{font-size:.65rem;}
+}
 /* ── Toasts (quiet, transient feedback — no badges, no gamification) ── */
 .toast-wrap{position:fixed;top:.9rem;right:.9rem;z-index:1000;display:flex;flex-direction:column;gap:.5rem;max-width:min(20rem,calc(100vw - 1.8rem));pointer-events:none;}
 .toast{background:var(--fg);color:#fff;font-size:.78rem;font-weight:500;line-height:1.45;padding:.6rem .8rem;border-radius:7px;box-shadow:var(--shadow-md);opacity:0;transform:translateY(-8px) scale(.96);transition:opacity .22s cubic-bezier(.22,1,.36,1),transform .22s cubic-bezier(.22,1,.36,1);pointer-events:auto;}
@@ -1356,7 +1372,7 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 <script>
 // Bump on every deploy-worthy change — shown in the footer so it's obvious
 // which build is live (e.g. after a cache or CDN propagation lag).
-const APP_VERSION = 'v1.1.0';
+const APP_VERSION = 'v1.2.0';
 
 // ════════════════════════════════════════════
 //  TRAINING PLAN
