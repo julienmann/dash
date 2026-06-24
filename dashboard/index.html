@@ -58,6 +58,9 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .topnav-inner{max-width:1100px;margin:0 auto;padding:0 2rem;display:flex;align-items:center;min-height:48px;gap:1rem;}
 .topnav-back{font-size:.75rem;font-weight:500;color:var(--mid);display:flex;align-items:center;gap:.3rem;transition:color .15s;flex-shrink:0;background:none;border:none;cursor:pointer;padding:0;}
 .topnav-back:hover{color:var(--fg);}
+.topnav-back-icon-refresh{display:none;width:13px;height:13px;}
+.topnav-back.is-refresh .topnav-back-icon-arrow{display:none;}
+.topnav-back.is-refresh .topnav-back-icon-refresh{display:inline-block;}
 .topnav-links{display:flex;align-items:center;gap:.75rem;flex-shrink:1;min-width:0;}
 .topnav-link{font-size:.75rem;font-weight:500;color:var(--mid);padding:.42rem .7rem;border-radius:5px;transition:color .15s,background .15s;white-space:nowrap;}
 .topnav-link.active,.topnav-back.active{color:var(--orange-strong);background:var(--orange-dim);font-weight:600;}
@@ -743,13 +746,13 @@ textarea.aiq-big-input{line-height:1.4;min-height:7.5rem;}
 }
 @media(max-width:480px){
   .race-hdr-right{display:none;}
-  /* Keep the nav on a single row: drop the "Home" label to an icon-only arrow and let the
-     race text truncate, instead of wrapping (wrapping clipped inside the fixed-height topnav). */
+  /* Keep the nav on a single row: drop the "Home" label to an icon-only arrow/refresh icon
+     and hide the race countdown, instead of wrapping (wrapping clipped inside the fixed-height topnav). */
   .topnav-back-label{display:none;}
   .topnav-links{gap:.4rem;}
   .topnav-link{font-size:.72rem;padding:.4rem .55rem;}
   .topnav-cta-btn{font-size:.72rem;padding:.4rem .65rem;}
-  .topnav-race{max-width:9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .topnav-race{display:none;}
 }
 /* Mobile Safari zooms the whole page on focus of any text input under 16px —
    bump every form control to 16px on touch-sized viewports without touching
@@ -805,7 +808,16 @@ textarea.aiq-big-input{line-height:1.4;min-height:7.5rem;}
 ══════════════════════════════════════════ -->
 <nav class="topnav">
   <div class="topnav-inner">
-    <button type="button" class="topnav-back" id="nav-home">← <span class="topnav-back-label">Home</span></button>
+    <button type="button" class="topnav-back" id="nav-home" aria-label="Home">
+      <span class="topnav-back-icon topnav-back-icon-arrow" aria-hidden="true">←</span>
+      <svg class="topnav-back-icon topnav-back-icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <path d="M3 11a9 9 0 0 1 15.3-5.3L21 8"/>
+        <path d="M21 4v4h-4"/>
+        <path d="M21 13a9 9 0 0 1-15.3 5.3L3 16"/>
+        <path d="M3 20v-4h4"/>
+      </svg>
+      <span class="topnav-back-label">Home</span>
+    </button>
 
     <div class="topnav-right">
       <div class="topnav-links">
@@ -2840,6 +2852,14 @@ function setActiveNav(name) {
   const map = { home: 'nav-home', builder: 'edit-plan-btn', connect: 'nav-connect' };
   Object.values(map).forEach(id => document.getElementById(id)?.classList.remove('active'));
   if (map[name]) document.getElementById(map[name])?.classList.add('active');
+
+  // On the dashboard home itself, "← Home" has nowhere left to go — turn it into a
+  // refresh button instead of a no-op link back to the same screen.
+  const homeBtn = document.getElementById('nav-home');
+  const isHome = name === 'home';
+  homeBtn.classList.toggle('is-refresh', isHome);
+  homeBtn.setAttribute('aria-label', isHome ? 'Refresh' : 'Home');
+  homeBtn.querySelector('.topnav-back-label').textContent = isHome ? 'Refresh' : 'Home';
 }
 
 function showStravaSetup() {
@@ -3917,7 +3937,9 @@ async function stravaInit() {
 }
 
 // ── Nav actions ─────────────────────────────────────────────────
-document.getElementById('nav-home').addEventListener('click', () => {
+document.getElementById('nav-home').addEventListener('click', (e) => {
+  // Already home: there's nowhere left to navigate, so the button refreshes instead.
+  if (e.currentTarget.classList.contains('is-refresh')) { location.reload(); return; }
   document.getElementById('plan-builder').classList.add('hidden');
   getCfg()?.access_token ? showStravaContent() : showPlannerOnly();
 });
