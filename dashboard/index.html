@@ -755,6 +755,13 @@ textarea.aiq-big-input{line-height:1.4;min-height:7.5rem;}
   .form-input,.ai-ask-input,.ai-key-input,.account-dropdown-pw,select,textarea{font-size:16px;}
   .cal-nav-btn,.account-icon-btn,.builder-close,.day-popup-close{min-width:44px;min-height:44px;}
   .builder-card{padding:1rem;}
+  /* The ask-the-coach row squeezes the textarea down to a sliver next to the
+     fixed-width button, so its placeholder wraps onto more lines than the
+     1-row box can show and gets clipped. Stack instead so the textarea gets
+     the full row width. */
+  .ai-ask-row{flex-direction:column;align-items:stretch;}
+  .ai-ask-input{min-height:4.5rem;}
+  .ai-ask-btn{width:100%;}
 }
 /* The per-day phase template grid (Type / Label / Min columns) is desktop-dense and
    forces sideways scrolling within its own wrapper on phone widths, burying the
