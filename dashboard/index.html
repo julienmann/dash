@@ -4800,6 +4800,8 @@ async function applyProPlan(id, answers) {
 // Pro-plan questionnaire — same one-question-at-a-time wizard format as the AI
 // builder (own state, since it's a separate 5-step flow from the AI questionnaire).
 const PRO_Q_STEP_COUNT = 5;
+// The experience step (3) is a tap-to-choose card grid — see AIQ_CHOICE_STEPS.
+const PRO_Q_CHOICE_STEPS = [3];
 let proQStep      = 0;
 let proQAthleteId = null;
 let proQStravaSuggestions = null;
@@ -4841,7 +4843,7 @@ function openProPlanQuestions(id) {
   document.getElementById('pro-q-train-start').value = trnDateStr(today);
   document.getElementById('pro-q-experience').value  = proQStravaSuggestions ? proQExperienceFromStrava(proQStravaSuggestions) : 'some';
   document.getElementById('pro-q-injuries').value    = '';
-  renderAiqCardGrid('pro-q-experience', 'pro-q-experience-grid', AIQ_EXPERIENCE_META);
+  renderAiqCardGrid('pro-q-experience', 'pro-q-experience-grid', AIQ_EXPERIENCE_META, proQAdvance);
   renderProQStravaBadge(proQStravaSuggestions);
   proQShowStep(0);
 }
@@ -4861,6 +4863,7 @@ function proQShowStep(n) {
     progressLabelId: 'pro-q-progress-label', progressFillId: 'pro-q-progress-fill',
     backBtnId: 'pro-q-nav-back', nextBtnId: 'pro-q-nav-next', errElId: 'pro-q-error',
     pos: proQStep, total: PRO_Q_STEP_COUNT, nextLabel: '✦ Load plan',
+    isChoiceStep: PRO_Q_CHOICE_STEPS.includes(proQStep),
   });
 }
 
@@ -4887,7 +4890,9 @@ document.getElementById('pro-q-nav-back').addEventListener('click', () => {
   proQShowStep(proQStep - 1);
 });
 
-document.getElementById('pro-q-nav-next').addEventListener('click', () => {
+// Shared by the Next button and by the experience step's onSelect — picking a card
+// advances the wizard immediately, same as clicking Next.
+function proQAdvance() {
   if (!proQValidateStep()) return;
   if (proQStep < PRO_Q_STEP_COUNT - 1) { proQShowStep(proQStep + 1); return; }
   applyProPlan(proQAthleteId, {
@@ -4898,7 +4903,8 @@ document.getElementById('pro-q-nav-next').addEventListener('click', () => {
     injuries:       document.getElementById('pro-q-injuries').value.trim(),
     stravaAvgHours: proQStravaSuggestions?.avgHoursPerWeek ?? null,
   });
-});
+}
+document.getElementById('pro-q-nav-next').addEventListener('click', proQAdvance);
 
 // ════════════════════════════════════════════
 //  AI PLAN BUILDER — questionnaire → generated plan
@@ -5004,7 +5010,7 @@ const AIQ_HIDDEN_EXP_META = [
 ];
 
 // Mon..Sun picker driving a hidden <select> — used for both rest day and long-session day.
-function renderAiqDayPicker(selectId, gridId) {
+function renderAiqDayPicker(selectId, gridId, onSelect) {
   const sel  = document.getElementById(selectId);
   const grid = document.getElementById(gridId);
   grid.innerHTML = DOW_LABELS.map((label, i) => `
@@ -5016,6 +5022,7 @@ function renderAiqDayPicker(selectId, gridId) {
         b.classList.toggle('is-selected', b === btn);
         b.setAttribute('aria-pressed', b === btn);
       });
+      onSelect?.();
     });
     btn.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); btn.click(); }
@@ -5093,6 +5100,10 @@ const AIQ_STEP_DISTANCES      = 5;
 const AIQ_STEP_RACE_DATE      = 2;
 const AIQ_STEP_TRAIN_START    = 3;
 const AIQ_STEP_HIDDEN_EXP_DETAIL = 14;
+// Tap-to-choose steps (card grid or day picker) — these advance on selection, so the
+// Next button is hidden for them (see wizardUpdateChrome). Race type (0), experience (6),
+// rest day (9), long day (10), hidden training history yes/no (13).
+const AIQ_CHOICE_STEPS = [0, 6, 9, 10, 13];
 // Steps that Strava history can answer objectively: current volume (7), days/week (8),
 // rest day (9), long-session day (10). When connected, we skip asking and use the
 // observed values instead. Age, weight, and prior (pre-Strava) training history are never
@@ -5127,12 +5138,16 @@ function aiqVisibleSteps() {
 // builder and the pro-plan questionnaire): progress label/bar, Back/Next button text,
 // and clearing the error banner. Each wizard still owns its own step-visibility logic
 // (the AI builder's varies with Strava/race-type; the pro-plan one doesn't need to).
-function wizardUpdateChrome({ progressLabelId, progressFillId, backBtnId, nextBtnId, errElId, pos, total, nextLabel }) {
+function wizardUpdateChrome({ progressLabelId, progressFillId, backBtnId, nextBtnId, errElId, pos, total, nextLabel, isChoiceStep }) {
   document.getElementById(progressLabelId).textContent = `Question ${pos + 1} of ${total}`;
   document.getElementById(progressFillId).style.width = `${((pos + 1) / total) * 100}%`;
   document.getElementById(backBtnId).textContent = pos === 0 ? 'Cancel' : '← Back';
   document.getElementById(errElId).classList.add('hidden');
   document.getElementById(nextBtnId).textContent = pos === total - 1 ? nextLabel : 'Next →';
+  // Tap-to-choose steps (card grids, day pickers) advance themselves on selection —
+  // a visible Next button there would just be a redundant second tap. Text/date/number
+  // steps still need one since there's no "selection" event to advance on.
+  document.getElementById(nextBtnId).classList.toggle('hidden', !!isChoiceStep);
   window.scrollTo(0, 0);
 }
 
@@ -5153,10 +5168,21 @@ function aiqShowStep(n) {
     progressLabelId: 'aiq-progress-label', progressFillId: 'aiq-progress-fill',
     backBtnId: 'aiq-nav-back', nextBtnId: 'aiq-nav-next', errElId: 'ai-builder-error',
     pos, total: visible.length, nextLabel: '✦ Generate plan',
+    isChoiceStep: AIQ_CHOICE_STEPS.includes(aiqStep),
   });
 }
 
 function aiqShowErr(msg) { wizardShowErr('ai-builder-error', msg); }
+
+// Shared by the Next button and by every choice step's onSelect (card grids, day
+// pickers) — picking an option advances the wizard immediately, same as clicking Next.
+function aiqAdvance() {
+  if (!aiqValidateStep()) return;
+  const visible = aiqVisibleSteps();
+  const pos = visible.indexOf(aiqStep);
+  if (pos === visible.length - 1) generateAiPlan();
+  else aiqShowStep(visible[pos + 1]);
+}
 
 // Only the fields needed to move forward are validated — everything else is optional
 // and gets sensible defaults at generation time, so the wizard never blocks on trivia.
@@ -5205,11 +5231,11 @@ function openAiBuilder() {
   syncAiSportFields(document.getElementById('aiq-race-type').value);
   applyAiqStravaPrefill();
   const raceTypeSel = document.getElementById('aiq-race-type');
-  renderAiqCardGrid('aiq-race-type', 'aiq-type-grid', AIQ_TYPE_META, () => raceTypeSel.dispatchEvent(new Event('change')));
-  renderAiqCardGrid('aiq-experience', 'aiq-experience-grid', AIQ_EXPERIENCE_META);
-  renderAiqCardGrid('aiq-hidden-exp', 'aiq-hidden-exp-grid', AIQ_HIDDEN_EXP_META);
-  renderAiqDayPicker('aiq-rest-day', 'aiq-rest-day-grid');
-  renderAiqDayPicker('aiq-long-day', 'aiq-long-day-grid');
+  renderAiqCardGrid('aiq-race-type', 'aiq-type-grid', AIQ_TYPE_META, () => { raceTypeSel.dispatchEvent(new Event('change')); aiqAdvance(); });
+  renderAiqCardGrid('aiq-experience', 'aiq-experience-grid', AIQ_EXPERIENCE_META, aiqAdvance);
+  renderAiqCardGrid('aiq-hidden-exp', 'aiq-hidden-exp-grid', AIQ_HIDDEN_EXP_META, aiqAdvance);
+  renderAiqDayPicker('aiq-rest-day', 'aiq-rest-day-grid', aiqAdvance);
+  renderAiqDayPicker('aiq-long-day', 'aiq-long-day-grid', aiqAdvance);
   aiqShowStep(0);
 }
 
@@ -5679,13 +5705,7 @@ document.getElementById('aiq-nav-back').addEventListener('click', () => {
   if (pos <= 0) closeAiBuilder();
   else aiqShowStep(visible[pos - 1]);
 });
-document.getElementById('aiq-nav-next').addEventListener('click', () => {
-  if (!aiqValidateStep()) return;
-  const visible = aiqVisibleSteps();
-  const pos = visible.indexOf(aiqStep);
-  if (pos === visible.length - 1) generateAiPlan();
-  else aiqShowStep(visible[pos + 1]);
-});
+document.getElementById('aiq-nav-next').addEventListener('click', aiqAdvance);
 
 document.getElementById('edit-plan-btn').addEventListener('click', openPlanBuilder);
 document.getElementById('builder-cancel-top').addEventListener('click', closePlanBuilder);
