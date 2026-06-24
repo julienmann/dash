@@ -633,6 +633,9 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 /* Entry CTAs (Load preset / Start AI) start a flow, so they use a solid border —
    the dashed style stays reserved for "+ Add" placeholder actions. */
 .builder-cta-btn{border-style:solid;margin-bottom:0;}
+.bldr-ai-edit-card{border:1.5px solid var(--orange);}
+.bldr-ai-edit-cta{background:var(--orange-strong);color:#fff;border-color:var(--orange-strong);}
+.bldr-ai-edit-cta:hover{opacity:.88;background:var(--orange-strong);}
 .pro-plan-section-hdr{display:flex;align-items:center;gap:.6rem;width:100%;text-align:left;}
 .pro-plan-section-text{flex:1;min-width:0;}
 .pro-plan-section-title{font-size:.85rem;font-weight:700;color:var(--fg);}
@@ -4304,6 +4307,11 @@ function renderPlanBuilderSimple() {
       <button class="bldr-simple-rm" type="button" data-action="event-remove" data-event-idx="${i}" aria-label="Remove event">×</button>
     </div>`).join('') : '<div class="bldr-simple-row"><span class="bldr-simple-meta bldr-simple-meta--empty">No tune-up races</span></div>';
   document.getElementById('builder-body').innerHTML = `
+    <div class="builder-card bldr-ai-edit-card">
+      <div class="builder-card-title">✦ Edit with AI coach</div>
+      <p class="builder-section-sub" style="margin-bottom:.9rem;">Describe a change in plain language — "add a recovery week before peak," "swap Tuesday's tempo run for hill repeats" — and the coach revises this plan for you to review.</p>
+      <button class="builder-add-btn builder-cta-btn bldr-ai-edit-cta" id="bldr-ai-edit-btn" type="button">✦ Edit with AI coach</button>
+    </div>
     <div class="builder-grid" style="margin-bottom:1.25rem">
       <div class="form-group"><label class="form-label">Race name</label>
         <input class="form-input" type="text" data-field="raceName" value="${esc(p.raceName)}"></div>
@@ -4318,7 +4326,6 @@ function renderPlanBuilderSimple() {
     <div class="builder-section-title">Tune-up Races</div>
     <div class="bldr-simple-list">${eventRows}</div>
     <button class="builder-add-btn" id="add-event-btn" type="button">+ Add Race Event</button>
-    <button class="builder-add-btn builder-cta-btn" id="bldr-ai-edit-btn" type="button">✦ Edit with AI coach</button>
     <button class="builder-add-btn builder-cta-btn" id="bldr-advanced-btn" type="button">Advanced edit →</button>
   `;
   attachBuilderListeners(renderPlanBuilderSimple);
