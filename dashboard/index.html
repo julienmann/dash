@@ -95,6 +95,10 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .account-dropdown-action.danger{color:var(--orange-strong);}
 .account-dropdown-action.danger:hover{color:#a8330d;}
 .account-dropdown-divider{border-top:1px solid var(--border);margin:.6rem 0;}
+.account-dropdown-verify{background:var(--amber-dim);border-radius:6px;padding:.5rem .6rem;margin-bottom:.6rem;}
+.account-dropdown-verify .account-dropdown-meta{color:var(--amber);font-weight:600;margin-bottom:.3rem;}
+.account-dropdown-verify .account-dropdown-action{color:var(--amber);padding:0;}
+.account-dropdown-verify .account-dropdown-action:hover{color:var(--fg);}
 .account-dropdown-confirm{font-size:.72rem;color:var(--mid);line-height:1.4;margin:.5rem 0 .6rem;}
 .account-dropdown-pw{width:100%;font-size:.8rem;padding:.4rem .55rem;border:1.5px solid var(--border);border-radius:6px;margin-bottom:.5rem;background:var(--bg);color:var(--fg);}
 .account-dropdown-confirm-row{display:flex;gap:.5rem;}
@@ -6002,6 +6006,10 @@ function renderAccountDropdown() {
       <div class="account-dropdown-meta" id="account-meta">Synced across devices</div>
       <div class="account-dropdown-meta">${stravaStatus}</div>
       ${stravaAction}
+      <div class="account-dropdown-verify hidden" id="account-verify-row">
+        <span class="account-dropdown-meta">Email not verified</span>
+        <button class="account-dropdown-action" id="resend-verify-btn" type="button">Resend confirmation email</button>
+      </div>
       <div class="account-dropdown-divider"></div>
       <button class="account-dropdown-action" id="logout-btn" type="button">Log out</button>
       <button class="account-dropdown-action danger" id="delete-account-btn" type="button">Delete account</button>
@@ -6025,6 +6033,25 @@ function renderAccountDropdown() {
         if (metaEl && data?.createdAt) {
           const d = new Date(data.createdAt);
           metaEl.textContent = `Member since ${d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`;
+        }
+        if (data && data.verified === false) {
+          document.getElementById('account-verify-row')?.classList.remove('hidden');
+          document.getElementById('resend-verify-btn')?.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const btn = e.currentTarget;
+            btn.disabled = true;
+            btn.textContent = 'Sending…';
+            try {
+              const res = await fetch(WORKER_URL + '/auth/resend-verification', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + session.token },
+              });
+              btn.textContent = res.ok ? 'Sent — check your inbox' : 'Could not send, try again';
+            } catch {
+              btn.textContent = 'Could not send, try again';
+            }
+            setTimeout(() => { btn.disabled = false; btn.textContent = 'Resend confirmation email'; }, 5000);
+          });
         }
       })
       .catch(() => {});

@@ -138,6 +138,13 @@ section:first-of-type{border-top:none;}
 .connect-skip{display:block;width:100%;text-align:center;font-size:.78rem;font-weight:500;color:var(--mid);background:none;border:none;cursor:pointer;font-family:inherit;padding:.4rem 0;margin-top:.9rem;min-height:44px;}
 .connect-skip:hover{color:var(--fg);text-decoration:underline;}
 
+/* ── Toast (email verification result) ───────────────────── */
+.toast{position:fixed;top:1.1rem;left:50%;transform:translateX(-50%);z-index:50;background:var(--card);border:1.5px solid var(--border);border-radius:.6rem;box-shadow:var(--shadow-md);padding:.7rem 1.1rem;font-size:.85rem;font-weight:600;max-width:90vw;}
+.toast.success{border-color:#2E7D46;color:#2E7D46;}
+.toast.error{border-color:#C0392B;color:#C0392B;}
+.toast.hidden{display:none;}
+.verify-notice{font-size:.84rem;color:var(--mid);background:var(--bg-soft,#F4F4F2);border:1px solid var(--border);border-radius:.6rem;padding:.7rem .85rem;margin:0 0 1.3rem;line-height:1.5;}
+
 /* ── Restrained page-load reveal ───────────────────────── */
 @keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
 .reveal{animation:rise .55s cubic-bezier(.22,1,.36,1) both;}
@@ -161,6 +168,8 @@ section:first-of-type{border-top:none;}
 </style>
 </head>
 <body>
+
+<div class="toast hidden" id="toast" role="status" aria-live="polite"></div>
 
 <!-- ════════════════ LANDING VIEW ════════════════ -->
 <div id="view-landing">
@@ -384,6 +393,7 @@ section:first-of-type{border-top:none;}
         <svg viewBox="0 0 24 24" aria-hidden="true" style="width:100%;height:100%;fill:#FC4C02;"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
       </div>
       <h1 class="auth-title">Connect Strava?</h1>
+      <p class="verify-notice hidden" id="verify-notice">We've sent a confirmation link to <strong id="verify-email-target"></strong>. Click it to verify your account — no rush, you can keep using the dashboard either way.</p>
       <p class="auth-lead">Your account is ready. One more thing makes the plan itself better: connecting Strava lets the dashboard see what you actually did, not just what was scheduled. Missed or cut-short sessions get accounted for automatically, paces and effort are grounded in your real fitness instead of a guess, and the week ahead quietly adjusts instead of running on autopilot.</p>
       <button class="btn btn-primary btn-lg btn-block" type="button" id="connect-strava-btn">Connect with Strava →</button>
       <button class="connect-skip" type="button" id="connect-skip-btn">Skip for now</button>
@@ -443,12 +453,41 @@ function showLanding() {
 
 // Shown once, right after a successful registration — not on login, since a
 // returning user already made this choice.
-function showConnectPrompt() {
+function showConnectPrompt(email) {
   viewLanding.classList.add('hidden');
   viewAuth.classList.add('hidden');
   viewConnect.classList.remove('hidden');
+  const notice = document.getElementById('verify-notice');
+  if (email) {
+    document.getElementById('verify-email-target').textContent = email;
+    notice.classList.remove('hidden');
+  } else {
+    notice.classList.add('hidden');
+  }
   window.scrollTo(0, 0);
 }
+
+// ── Toast (used for the email-verification link landing back here) ──
+let toastTimer = null;
+function showToast(message, kind) {
+  const el = document.getElementById('toast');
+  el.textContent = message;
+  el.className = 'toast' + (kind ? ' ' + kind : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add('hidden'), 6000);
+}
+
+// A click on the confirmation email link redirects here with ?verified=1|0.
+// Read it once, show the result, then strip the query so a refresh doesn't repeat it.
+(function handleVerifyRedirect() {
+  const params = new URLSearchParams(location.search);
+  if (!params.has('verified')) return;
+  const ok = params.get('verified') === '1';
+  showToast(ok ? 'Email confirmed — you\'re all set.' : 'That confirmation link is invalid or expired.', ok ? 'success' : 'error');
+  params.delete('verified');
+  const qs = params.toString();
+  history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+})();
 
 // ── Hash routing (#login / #get-started restore the auth view on refresh) ──
 function routeFromHash() {
@@ -482,8 +521,8 @@ async function submitAuth(path, email, password, errorEl, onSuccess) {
     const res  = await fetch(WORKER_URL + path, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email, password }) });
     const data = await res.json();
     if (!res.ok) { errorEl.textContent = data.error || 'Something went wrong'; return; }
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ token:data.token, email:data.email }));
-    onSuccess();
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ token:data.token, email:data.email, verified:!!data.verified }));
+    onSuccess(data.email);
   } catch {
     errorEl.textContent = 'Could not reach the server. Try again.';
   }

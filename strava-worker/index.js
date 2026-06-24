@@ -60,6 +60,16 @@ export default {
     const isAllowed      = allowedOrigins.includes(origin);
     const allowOrigin    = isAllowed ? origin : '';
 
+    const url = new URL(req.url);
+
+    // Confirmation links are clicked directly from an email client as a plain GET — there's
+    // no Origin/Referer to match against ALLOWED_ORIGIN, so this route sits ahead of the
+    // origin gate below. It validates its own `redirect` param against the allow-list instead
+    // (open-redirect guard) and never touches anything the CORS gate would otherwise protect.
+    if (url.pathname === '/auth/verify' && req.method === 'GET') {
+      return handleVerifyEmail(req, env, allowedOrigins);
+    }
+
     if (req.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(allowOrigin) });
     }
@@ -70,10 +80,9 @@ export default {
       return json({ error: 'Forbidden' }, 403, allowOrigin);
     }
 
-    const url = new URL(req.url);
-
-    if (url.pathname === '/auth/register' && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'auth', handleRegister);
-    if (url.pathname === '/auth/login'    && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'auth', handleLogin);
+    if (url.pathname === '/auth/register'            && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'auth', handleRegister);
+    if (url.pathname === '/auth/login'                && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'auth', handleLogin);
+    if (url.pathname === '/auth/resend-verification'  && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'auth', handleResendVerification);
     if (url.pathname === '/plan'          && req.method === 'GET')  return handleGetPlan(req, env, allowOrigin);
     if (url.pathname === '/plan'          && req.method === 'PUT')  return handlePutPlan(req, env, allowOrigin);
     if (url.pathname === '/account'       && req.method === 'GET')  return handleGetAccount(req, env, allowOrigin);
@@ -141,11 +150,15 @@ async function handleRegister(req, env, allowOrigin) {
   const passwordHash = await hashPassword(password);
   const createdAt    = Date.now();
 
-  await env.DB.prepare('INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)')
+  await env.DB.prepare('INSERT INTO users (id, email, password_hash, created_at, email_verified) VALUES (?, ?, ?, ?, 0)')
     .bind(id, email, passwordHash, createdAt).run();
 
+  // Don't block account creation on the email provider — a Resend outage shouldn't
+  // stop someone from signing up; they can always hit /auth/resend-verification later.
+  await sendVerificationLink(req, env, allowOrigin, id, email);
+
   const token = await signSession(env, id);
-  return json({ token, email }, 201, allowOrigin);
+  return json({ token, email, verified: false }, 201, allowOrigin);
 }
 
 async function handleLogin(req, env, allowOrigin) {
@@ -159,12 +172,12 @@ async function handleLogin(req, env, allowOrigin) {
   const email    = String(body.email || '').trim().toLowerCase();
   const password = String(body.password || '');
 
-  const user = await env.DB.prepare('SELECT id, password_hash FROM users WHERE email = ?').bind(email).first();
+  const user = await env.DB.prepare('SELECT id, password_hash, email_verified FROM users WHERE email = ?').bind(email).first();
   const ok   = user && await verifyPassword(password, user.password_hash);
   if (!ok) return json({ error: 'Incorrect email or password' }, 401, allowOrigin);
 
   const token = await signSession(env, user.id);
-  return json({ token, email }, 200, allowOrigin);
+  return json({ token, email, verified: !!user.email_verified }, 200, allowOrigin);
 }
 
 // ── Account details ────────────────────────────────────────────────
@@ -174,9 +187,82 @@ async function handleGetAccount(req, env, allowOrigin) {
   const userId = await requireSession(req, env);
   if (!userId) return json({ error: 'Not authenticated' }, 401, allowOrigin);
 
-  const user = await env.DB.prepare('SELECT email, created_at FROM users WHERE id = ?').bind(userId).first();
+  const user = await env.DB.prepare('SELECT email, created_at, email_verified FROM users WHERE id = ?').bind(userId).first();
   if (!user) return json({ error: 'Account not found' }, 404, allowOrigin);
-  return json({ email: user.email, createdAt: user.created_at }, 200, allowOrigin);
+  return json({ email: user.email, createdAt: user.created_at, verified: !!user.email_verified }, 200, allowOrigin);
+}
+
+// ── Email confirmation ───────────────────────────────────────────
+
+async function handleResendVerification(req, env, allowOrigin) {
+  if (!env.DB) return json({ error: 'Accounts not configured — bind a D1 database as DB' }, 503, allowOrigin);
+  const userId = await requireSession(req, env);
+  if (!userId) return json({ error: 'Not authenticated' }, 401, allowOrigin);
+
+  const user = await env.DB.prepare('SELECT email, email_verified FROM users WHERE id = ?').bind(userId).first();
+  if (!user) return json({ error: 'Account not found' }, 404, allowOrigin);
+  if (user.email_verified) return json({ ok: true, alreadyVerified: true }, 200, allowOrigin);
+
+  await env.DB.prepare('DELETE FROM verification_tokens WHERE user_id = ?').bind(userId).run();
+  await sendVerificationLink(req, env, allowOrigin, userId, user.email);
+  return json({ ok: true }, 200, allowOrigin);
+}
+
+// Clicked from the confirmation email — a plain top-level GET, so this is a redirect,
+// not a JSON response. `redirect` is validated against the allow-list before use (the
+// token itself can't be used to redirect somewhere off-list).
+async function handleVerifyEmail(req, env, allowedOrigins) {
+  const url           = new URL(req.url);
+  const token         = url.searchParams.get('token') || '';
+  const redirectParam = url.searchParams.get('redirect') || '';
+  const dest           = allowedOrigins.includes(redirectParam) ? redirectParam : (allowedOrigins[0] || '');
+
+  if (!env.DB || !token) return Response.redirect(`${dest}/?verified=0`, 302);
+
+  const row = await env.DB.prepare('SELECT user_id, expires_at FROM verification_tokens WHERE token = ?').bind(token).first();
+  if (!row || row.expires_at < Date.now()) {
+    if (row) await env.DB.prepare('DELETE FROM verification_tokens WHERE token = ?').bind(token).run();
+    return Response.redirect(`${dest}/?verified=0`, 302);
+  }
+
+  await env.DB.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').bind(row.user_id).run();
+  await env.DB.prepare('DELETE FROM verification_tokens WHERE user_id = ?').bind(row.user_id).run();
+  return Response.redirect(`${dest}/?verified=1`, 302);
+}
+
+const VERIFY_TOKEN_TTL_MS = 1000 * 60 * 60 * 24; // 24 hours
+
+async function sendVerificationLink(req, env, allowOrigin, userId, email) {
+  if (!env.DB) return;
+  const token     = b64encode(crypto.getRandomValues(new Uint8Array(32)));
+  const expiresAt = Date.now() + VERIFY_TOKEN_TTL_MS;
+  await env.DB.prepare('INSERT INTO verification_tokens (token, user_id, expires_at) VALUES (?, ?, ?)')
+    .bind(token, userId, expiresAt).run();
+
+  const workerOrigin = new URL(req.url).origin;
+  const verifyUrl = `${workerOrigin}/auth/verify?token=${token}&redirect=${encodeURIComponent(allowOrigin)}`;
+  await sendVerificationEmail(env, email, verifyUrl);
+}
+
+async function sendVerificationEmail(env, to, verifyUrl) {
+  if (!env.RESEND_API_KEY) { console.error('[email] RESEND_API_KEY not set — skipping verification email'); return; }
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from:    env.EMAIL_FROM || 'Training Dashboard <onboarding@resend.dev>',
+        to:      [to],
+        subject: 'Confirm your email',
+        html: `<p>Welcome — click below to confirm your email and finish setting up your account.</p>` +
+              `<p><a href="${verifyUrl}">Confirm email address</a></p>` +
+              `<p>This link expires in 24 hours. You can keep using the dashboard before confirming — this just verifies it's really you.</p>`,
+      }),
+    });
+    if (!res.ok) console.error('[email] Resend send failed', res.status, await res.text());
+  } catch (e) {
+    console.error('[email] failed to reach Resend', e);
+  }
 }
 
 async function handleDeleteAccount(req, env, allowOrigin) {

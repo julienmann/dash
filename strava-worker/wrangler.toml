@@ -7,6 +7,11 @@ compatibility_date = "2025-01-01"
 # Add local dev origins here as needed.
 ALLOWED_ORIGIN = "https://julienmann.ca,https://dash.julienmann.ca,http://localhost:8080"
 
+# "Name <email>" the confirmation email is sent from. The domain must be verified in your
+# Resend account (resend.com/domains) before it can send to addresses outside your own —
+# until then, use Resend's shared sandbox sender for testing: "onboarding@resend.dev".
+EMAIL_FROM = "Training Dashboard <onboarding@resend.dev>"
+
 # D1 database for accounts + synced plans. Create it once with:
 #   wrangler d1 create jm-dashboard-db
 #   wrangler d1 execute jm-dashboard-db --remote --file=schema.sql
@@ -21,6 +26,7 @@ database_id = "0fc4630f-5673-4c87-9c65-7a7146984b19"
 #   wrangler secret put STRAVA_CLIENT_SECRET
 #   wrangler secret put ANTHROPIC_API_KEY
 #   wrangler secret put SESSION_SECRET   (any long random string, e.g. `openssl rand -base64 32`)
+#   wrangler secret put RESEND_API_KEY   (from resend.com — used to send confirmation emails)
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
 id = "c502b46837494b3fa0a733a1624f486a"
