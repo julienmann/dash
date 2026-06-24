@@ -343,6 +343,13 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .cal-adapt-makeup    {color:#8B5CF6;}
 .cal-adapt-reduced   {color:#4A90D9;}
 
+.active-adapt-note{font-size:.78rem;line-height:1.5;margin-top:.9rem;padding:.55rem .75rem;border-radius:8px;display:flex;gap:.45rem;align-items:flex-start;}
+.active-adapt-note .aan-icon{font-weight:700;flex-shrink:0;}
+.active-adapt-note-moved_here{color:var(--amber);background:var(--amber-dim);}
+.active-adapt-note-makeup    {color:#8B5CF6;background:rgba(139,92,246,.1);}
+.active-adapt-note-reduced   {color:#4A90D9;background:rgba(74,144,217,.1);}
+.active-adapt-note-ai        {color:var(--amber);background:var(--amber-dim);}
+
 /* ── Recent activities (training section) ── */
 .recent-acts-section{margin-bottom:1.25rem;}
 .recent-acts-footer{display:flex;justify-content:center;padding:.85rem 1.5rem;border-top:1px solid var(--border);}
@@ -1863,35 +1870,34 @@ function adaptPlan() {
 
     // ── Missed workout → reschedule ────────────────────────────
     if (status === 'missed' && !tmp[ds]) {
-      const dMon = mondayOf(d);
+      const dMon      = mondayOf(d);
+      const missPhase = getPhaseForDate(d);
+      const missTaper = !!missPhase && missPhase.name.toLowerCase() === 'taper';
       let placed = false;
 
-      // 1. Try same week, days after the miss, from today onwards
-      for (let j = 1; j <= 6 && !placed; j++) {
-        const c  = addDays(dMon, j);
-        const cs = trnDateStr(c);
-        if (startOfDay(c) <= startOfDay(d)) continue;   // must be after missed day
-        if (startOfDay(c) < today)          continue;   // must be today or future
+      // Search forward up to ADAPT_FUTURE_DAYS for the first open rest/blank slot.
+      // Never dump a non-Taper miss into the Taper phase — that phase's volume cut
+      // is deliberate (see aiOptimizePlan's MODIFICATION RULES).
+      for (let j = 1; j <= ADAPT_FUTURE_DAYS && !placed; j++) {
+        const c = addDays(d, j);
+        if (startOfDay(c) < today)     continue;   // must be today or future
+        if (startOfDay(c) > RACE_DATE) break;       // never past race day
+
+        const cPhase = getPhaseForDate(c);
+        const cTaper = !!cPhase && cPhase.name.toLowerCase() === 'taper';
+        if (cTaper && !missTaper) continue;         // guard the taper window
+
+        const cs   = trnDateStr(c);
         const slot = eff(c);
         if (!slot || slot.type === 'rest') {
-          tmp[ds] = { type:'moved_from', session:{type:'rest',label:'Rest Day',duration:0}, reason:`Rescheduled to ${cs}` };
-          tmp[cs] = { type:'moved_here',  session:{...base, label:base.label + ' (rescheduled)'}, reason:`Missed on ${ds}` };
-          placed = true;
-        }
-      }
-
-      // 2. No slot this week → try next week's first available rest day
-      if (!placed) {
-        const nextMon = addDays(dMon, 7);
-        for (let j = 0; j < 7 && !placed; j++) {
-          const c  = addDays(nextMon, j);
-          const cs = trnDateStr(c);
-          if (startOfDay(c) < today) continue;
-          const slot = eff(c);
-          if (!slot || slot.type === 'rest') {
+          const sameWeek = mondayOf(c).getTime() === dMon.getTime();
+          if (sameWeek) {
+            tmp[ds] = { type:'moved_from', session:{type:'rest',label:'Rest Day',duration:0}, reason:`Rescheduled to ${cs}` };
+            tmp[cs] = { type:'moved_here',  session:{...base, label:base.label + ' (rescheduled)'}, reason:`Missed on ${ds}` };
+          } else {
             tmp[cs] = { type:'makeup', session:{...base, label:base.label + ' (makeup)'}, reason:`Missed on ${ds}` };
-            placed = true;
           }
+          placed = true;
         }
       }
     }
@@ -2080,6 +2086,21 @@ function buildPlanContext() {
     lines.push(`${ds}: ${e.label}${ds === trnDateStr(RACE_DATE) ? ' (RACE DAY)' : ''}`);
   }
 
+  // Tell the AI what the rule engine already changed (reschedules/reductions from
+  // adaptPlan), so it builds on top of those decisions instead of silently
+  // re-deciding or contradicting them — AI overrides take precedence at render time.
+  const adaptLo = trnDateStr(addDays(today, -AI_WINDOW_DAYS));
+  const adaptHi = trnDateStr(addDays(today, AI_WINDOW_DAYS));
+  const adaptTypeLbl = { moved_from:'rescheduled away (now rest)', moved_here:'rescheduled makeup session', makeup:'makeup session', reduced:'session eased back' };
+  const adaptLines = Object.entries(gOverrides)
+    .filter(([ds]) => ds >= adaptLo && ds <= adaptHi)
+    .sort(([a],[b]) => a < b ? -1 : 1)
+    .map(([ds, ov]) => `${ds}: ${adaptTypeLbl[ov.type] || ov.type} → ${ov.session.type} ${ov.session.duration}min "${ov.session.label}" (${ov.reason})`);
+  if (adaptLines.length) {
+    lines.push(`\n-- RULE-ENGINE ADAPTATIONS ALREADY APPLIED (do not duplicate or contradict these) --`);
+    lines.push(...adaptLines);
+  }
+
   const zoneBlock = athleteZoneLines();
   if (zoneBlock) lines.push('\n' + zoneBlock);
 
@@ -2235,6 +2256,7 @@ MODIFICATION RULES
 - Skip rest days in "changes" unless a forced rest is clearly warranted.
 - Keep changes realistic: do not increase any single session's duration by more than 20%. Do not add a quality session on a day that already follows a hard session.
 - Keep race events (type "race") unchanged — never include a race date in a range or as a change.
+- If a RULE-ENGINE ADAPTATIONS section is included, those reschedules/reductions are already live on the calendar. Build on top of them — don't re-propose a change for a date already listed there, and don't schedule a new session into a slot the rule engine just freed up as a rest day unless it's the athlete's explicit request.
 - If an ATHLETE REQUEST is included, address it directly and prioritize it over routine fatigue/fitness signals.
 - If a FOLLOW-UP section is included, it answers a question you previously asked — use it to refine your response. Do not ask the same question again.
 - Only ask a clarifying question if you genuinely cannot make a good coaching decision without the answer (e.g. injury location/severity is unclear, or an athlete request implies a constraint you cannot resolve). This should be rare — in the normal case, make the call and leave "question" as an empty string.
@@ -2531,6 +2553,16 @@ function renderHero() {
   const todayAct    = getActivity(today);
   const todayIsRest = !todayAct || todayAct.type === 'rest';
 
+  // Surface why this session differs from the base plan (rule-engine or AI adaptation),
+  // mirroring the calendar's override badge so the daily card answers "why" not just "what".
+  const actDs  = trnDateStr(actDate);
+  const aiOv   = gAiOverrides[actDs], rOv = gOverrides[actDs], ov = aiOv || rOv;
+  const adaptIcon = ov ? (aiOv ? '✦' : { moved_from:'→', moved_here:'↗', makeup:'+', reduced:'↓' }[ov.type]) : '';
+  const adaptNoteHtml = (ov && adaptIcon) ? `
+        <div class="active-adapt-note active-adapt-note-${aiOv ? 'ai' : ov.type}">
+          <span class="aan-icon">${adaptIcon}</span>${esc(ov.reason)}
+        </div>` : '';
+
   // Pull the same per-session detail the workout views use (effort, HR zone, target pace,
   // structure, coaching cue) so the hero card is informative, not just a name + duration.
   const wd = getWorkoutDetails(act);
@@ -2566,6 +2598,7 @@ function renderHero() {
           ${dur ? `<span>${dur}</span>` : ''}
           ${phaseName ? `<span>${phaseName}</span>` : ''}
         </div>
+        ${adaptNoteHtml}
         ${detailsHtml}
       </div>
       ${dur ? `<div class="active-right"><div class="active-duration">${dur}</div><div class="active-dur-label">Duration</div></div>` : ''}
