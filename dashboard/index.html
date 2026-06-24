@@ -5569,6 +5569,8 @@ async function validateAndSavePlan(plan, errEl) {
   localStorage.removeItem(AI_OPT_KEY);
   // Persist a one-shot flag so the post-reload page can confirm the save was applied.
   try { sessionStorage.setItem('jm_saved_toast', '1'); } catch {}
+  // Clear the #/builder deep link so the reload lands on the dashboard, not back in the builder.
+  if (location.hash === '#/builder') history.replaceState(null, '', location.pathname + location.search);
   location.reload();
   return true;
 }
