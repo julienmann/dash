@@ -239,10 +239,10 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .cal-check.missed{color:#EF4444;}
 
 /* ── Day detail popup ── */
-.day-popup-overlay{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);opacity:0;transition:opacity .15s;pointer-events:none;}
+.day-popup-overlay{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.35);opacity:0;transition:opacity .22s cubic-bezier(.22,1,.36,1);pointer-events:none;}
 .day-popup-overlay.open{opacity:1;pointer-events:auto;}
-.day-popup{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-md);max-width:420px;width:min(420px,calc(100vw - 1.5rem));padding:1.5rem;position:relative;transform:translateY(8px);transition:transform .15s;max-height:90vh;overflow-y:auto;}
-.day-popup-overlay.open .day-popup{transform:translateY(0);}
+.day-popup{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-md);max-width:420px;width:min(420px,calc(100vw - 1.5rem));padding:1.5rem;position:relative;transform:translateY(14px) scale(.98);transition:transform .26s cubic-bezier(.22,1,.36,1);max-height:90vh;overflow-y:auto;}
+.day-popup-overlay.open .day-popup{transform:translateY(0) scale(1);}
 .day-popup-close{position:absolute;top:.75rem;right:.75rem;background:none;border:none;cursor:pointer;color:var(--mid);font-size:1rem;padding:.25rem;line-height:1;border-radius:4px;transition:color .1s,background .1s;}
 .day-popup-close:hover{color:var(--fg);background:var(--bg);}
 .day-popup-date{font-size:.7rem;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.6rem;}
@@ -272,6 +272,8 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 /* ── AI coaching panel ── */
 .ai-panel{margin-top:1.25rem;margin-bottom:1.25rem;}
 .ai-panel-inner{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+@keyframes ai-panel-rise{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.ai-panel-inner.ai-panel-rise{animation:ai-panel-rise .32s cubic-bezier(.22,1,.36,1) both;}
 .ai-panel-hdr{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.25rem;cursor:pointer;user-select:none;}
 .ai-panel-title-row{display:flex;align-items:center;gap:.55rem;}
 .ai-panel-icon{color:var(--amber);font-style:normal;font-size:.85rem;}
@@ -312,7 +314,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 @keyframes aiq-pulse{0%{opacity:.4;transform:scale(.7);}100%{opacity:1;transform:scale(1);}}
 .ai-loading-bar-wrap{width:80px;height:3px;background:var(--border);border-radius:99px;overflow:hidden;}
 .ai-loading-bar{height:100%;width:40%;background:var(--amber);border-radius:99px;animation:loadbar 1s ease-in-out infinite alternate;}
-.ai-panel-error{padding:1rem 1.25rem;font-size:.76rem;color:#D93025;font-weight:500;}
+.ai-panel-error{padding:1rem 1.25rem;font-size:.76rem;color:var(--red);font-weight:500;}
 .ai-panel-setup{padding:1.1rem 1.25rem;display:flex;flex-direction:column;gap:.65rem;}
 .ai-panel-setup-hdr{font-size:.82rem;font-weight:700;display:flex;align-items:center;gap:.45rem;}
 .ai-panel-setup-sub{font-size:.75rem;color:var(--mid);line-height:1.6;}
@@ -322,7 +324,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .ai-key-input:focus-visible{outline:2px solid var(--orange-strong);outline-offset:2px;}
 .ai-key-btn{padding:.45rem .9rem;background:var(--amber);color:#fff;font-weight:700;font-size:.8rem;border-radius:6px;white-space:nowrap;transition:opacity .15s;}
 .ai-key-btn:hover{opacity:.88;}
-.ai-key-error{font-size:.72rem;color:#D93025;font-weight:500;min-height:1em;}
+.ai-key-error{font-size:.72rem;color:var(--red);font-weight:500;min-height:1em;}
 .day-adapt-ai{color:var(--amber);background:var(--amber-dim);}
 .cal-adapt-ai{color:var(--amber);}
 
@@ -373,7 +375,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .form-input:focus-visible{outline:2px solid var(--orange-strong);outline-offset:2px;}
 .connect-btn{width:100%;padding:.68rem;background:var(--orange-strong);color:#fff;font-weight:700;font-size:.86rem;border:none;border-radius:6px;transition:opacity .15s;margin-top:.2rem;}
 .connect-btn:hover{opacity:.88;}
-.connect-error{font-size:.73rem;color:#D93025;margin-top:.55rem;min-height:1em;font-weight:500;}
+.connect-error{font-size:.73rem;color:var(--red);margin-top:.55rem;min-height:1em;font-weight:500;}
 
 /* ── WELCOME / LOGIN ── */
 .welcome-wrap{min-height:calc(100vh - 48px);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2.5rem 0 4rem;}
@@ -481,11 +483,6 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .fitness-caption{font-size:.72rem;color:var(--mid);margin-top:.7rem;}
 .fitness-caption strong{font-weight:700;}
 .fitness-empty{font-size:.75rem;color:var(--mid);padding:2.5rem .5rem;text-align:center;line-height:1.5;}
-.countdown-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.5rem 1.5rem;display:flex;flex-direction:column;justify-content:center;}
-.countdown-eyebrow{font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);margin-bottom:.4rem;}
-.countdown-num{font-size:7rem;font-weight:800;color:var(--orange);letter-spacing:-.05em;line-height:.85;margin:.1rem 0 .5rem;}
-.countdown-unit{font-size:1.1rem;font-weight:700;color:var(--fg);}
-.countdown-date{font-size:.78rem;color:var(--mid);margin-top:.35rem;}
 /* ── NEXT WORKOUT DETAIL (countdown card pre-training state) ── */
 .nw-header{display:flex;align-items:center;gap:.55rem;margin:.45rem 0 .3rem;}
 .nw-name{font-size:1.05rem;font-weight:800;color:var(--fg);letter-spacing:-.025em;line-height:1.2;}
@@ -563,7 +560,7 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .split-elev.up{color:var(--red);}
 .split-elev.down{color:var(--green);}
 .detail-loading{font-size:.76rem;color:var(--mid);}
-.detail-error{font-size:.76rem;color:#D93025;font-weight:500;}
+.detail-error{font-size:.76rem;color:var(--red);font-weight:500;}
 .no-data-row td{padding:1.75rem 1.5rem;font-size:.8rem;color:var(--mid);}
 
 .td-index{color:var(--border);font-size:.72rem;font-weight:500;width:1.5rem;}
@@ -612,7 +609,7 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 .icon-btn:hover{border-color:var(--fg);color:var(--fg);}
 .icon-btn:disabled{opacity:.35;cursor:default;}
 .icon-btn:disabled:hover{border-color:var(--border);color:var(--mid);}
-.icon-btn.danger:hover{border-color:#C0392B;color:#C0392B;}
+.icon-btn.danger:hover{border-color:var(--red);color:var(--red);}
 .tmpl-table-wrap{overflow-x:auto;margin-top:.6rem;}
 .tmpl-table{display:grid;grid-template-columns:2.4rem 6.5rem 1fr 4.5rem;gap:.4rem .5rem;align-items:center;min-width:480px;}
 .tmpl-table .form-input{padding:.4rem .5rem;font-size:.78rem;}
@@ -630,7 +627,7 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 .bldr-simple-meta{font-size:.75rem;color:var(--mid);white-space:nowrap;}
 .bldr-simple-meta--empty{padding:.1rem 0;}
 .bldr-simple-rm{font-size:.75rem;color:var(--mid);padding:.1rem .2rem;border-radius:4px;line-height:1;transition:color .12s;}
-.bldr-simple-rm:hover{color:#C0392B;}
+.bldr-simple-rm:hover{color:var(--red);}
 .bldr-back-link{font-size:.75rem;font-weight:600;color:var(--mid);padding:.3rem 0;display:inline-flex;align-items:center;gap:.3rem;transition:color .12s;margin-bottom:.75rem;}
 .bldr-back-link:hover{color:var(--fg);}
 /* Entry CTAs (Load preset / Start AI) start a flow, so they use a solid border —
@@ -680,7 +677,7 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 .builder-btn-secondary{border:1.5px solid var(--border);color:var(--fg);}
 .builder-btn-secondary:hover{border-color:var(--fg);}
 .builder-btn-ghost{font-size:.78rem;color:var(--mid);font-weight:600;padding:.62rem .4rem;}
-.builder-btn-ghost:hover{color:#C0392B;}
+.builder-btn-ghost:hover{color:var(--red);}
 
 /* ── AI QUESTIONNAIRE WIZARD — one question at a time, feels like a conversation ── */
 .aiq-progress{display:flex;align-items:center;gap:.7rem;margin-bottom:1.5rem;}
@@ -749,7 +746,7 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 }
 /* ── Toasts (quiet, transient feedback — no badges, no gamification) ── */
 .toast-wrap{position:fixed;top:.9rem;right:.9rem;z-index:1000;display:flex;flex-direction:column;gap:.5rem;max-width:min(20rem,calc(100vw - 1.8rem));pointer-events:none;}
-.toast{background:var(--fg);color:#fff;font-size:.78rem;font-weight:500;line-height:1.45;padding:.6rem .8rem;border-radius:7px;box-shadow:var(--shadow-md);opacity:0;transform:translateY(-6px);transition:opacity .18s,transform .18s;pointer-events:auto;}
+.toast{background:var(--fg);color:#fff;font-size:.78rem;font-weight:500;line-height:1.45;padding:.6rem .8rem;border-radius:7px;box-shadow:var(--shadow-md);opacity:0;transform:translateY(-8px) scale(.96);transition:opacity .22s cubic-bezier(.22,1,.36,1),transform .22s cubic-bezier(.22,1,.36,1);pointer-events:auto;}
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.is-error{background:var(--red);}
 @media(prefers-reduced-motion:reduce){
@@ -1598,7 +1595,16 @@ function computePlan(plan) {
   };
 }
 
-const PLAN                = computePlan(loadRawPlan());
+const RAW_PLAN             = loadRawPlan();
+const PLAN                 = computePlan(RAW_PLAN);
+// Cheap content hash so cached AI output can be invalidated when the athlete edits/
+// regenerates the base plan, even if no new Strava activity has come in since.
+const PLAN_SIGNATURE       = (() => {
+  const s = JSON.stringify(RAW_PLAN);
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h.toString(36);
+})();
 const TRAIN_START         = PLAN.trainStart;
 const RACE_DATE           = PLAN.raceDate;
 const PHASES              = PLAN.phases;
@@ -2039,6 +2045,28 @@ function aiModelCandidates(fallbacks) {
     : fallbacks.slice();
 }
 
+// Extracts the first balanced {...} object from model output by brace-depth counting,
+// rather than a greedy regex from the first "{" to the LAST "}" in the whole response —
+// which would swallow any trailing prose/garbage that happens to contain a "}".
+function extractJson(text) {
+  const start = text.indexOf('{');
+  if (start === -1) return null;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === '{') depth++;
+    else if (c === '}') { depth--; if (depth === 0) return text.slice(start, i + 1); }
+  }
+  return null;
+}
+
 // POST to the worker /ai proxy, trying each candidate model in turn. Advances to the
 // next model only on a 404 (model unavailable); persists the first one that works.
 // Returns the parsed response JSON, or throws with the last error.
@@ -2069,7 +2097,11 @@ async function aiFetch({ candidates, system, messages, maxTokens, signal }) {
       break;
     }
     if (res.ok) break;
-    if (res.status !== 404) break;
+    // Move on to the next candidate model not just for 404 (model unavailable) but also
+    // when a model is still rate-limited after exhausting its own backoff attempts —
+    // otherwise a persistently-429ing primary model aborts the whole call instead of
+    // falling through to a working fallback.
+    if (res.status !== 404 && res.status !== 429 && res.status !== 529) break;
   }
   if (!res.ok) throw new Error(lastErr || 'Request failed');
   return res.json();
@@ -2084,9 +2116,9 @@ async function aiOptimizePlan(force = false) {
 
   const userRequest = getAiRequest();
 
-  // Serve from cache if the last activity, athlete request, and prompt version haven't changed
+  // Serve from cache if the last activity, athlete request, plan, and prompt version haven't changed
   const cached = getCachedOpt();
-  if (!force && cached?.activityId === lastAct.id && cached?.promptVersion === AI_PROMPT_VERSION && (cached?.request || '') === userRequest) {
+  if (!force && cached?.activityId === lastAct.id && cached?.planSignature === PLAN_SIGNATURE && cached?.promptVersion === AI_PROMPT_VERSION && (cached?.request || '') === userRequest) {
     if (!gAiSummary.length) { applyAiResult(cached); renderWeekStrip(); renderCalendar(); }
     renderAiPanel(cached.summary);
     return;
@@ -2167,11 +2199,11 @@ Respond ONLY with a valid JSON object — no markdown, no explanation outside th
       maxTokens: 2048,
     });
     const text    = data.content?.[0]?.text || '';
-    const jsonStr = text.match(/\{[\s\S]*\}/)?.[0];
+    const jsonStr = extractJson(text);
     if (!jsonStr) throw new Error('No JSON in response');
     const result = JSON.parse(jsonStr);
 
-    const toCache = { activityId: lastAct.id, timestamp: Date.now(), request: userRequest, promptVersion: AI_PROMPT_VERSION, ...result };
+    const toCache = { activityId: lastAct.id, planSignature: PLAN_SIGNATURE, timestamp: Date.now(), request: userRequest, promptVersion: AI_PROMPT_VERSION, ...result };
     saveCachedOpt(toCache);
     applyAiResult(result);
     gAiFollowUp = null;
@@ -2232,7 +2264,7 @@ function renderAiPanel(summary) {
     ? `${totalDays} day${totalDays !== 1 ? 's' : ''} adjusted in your plan`
     : 'No changes suggested';
 
-  panelEl.innerHTML = `<div class="ai-panel-inner">
+  panelEl.innerHTML = `<div class="ai-panel-inner ai-panel-rise">
     <div class="ai-panel-hdr" id="ai-panel-hdr">
       <div class="ai-panel-title-row">
         <em class="ai-panel-icon">✦</em>
@@ -3432,7 +3464,23 @@ function getWorkoutStructure(label, type, duration) {
     return `10 min warmup · ${work} min at race effort · 5 min easy cool-down`;
   }
   if (/long run/.test(label))           return 'Easy first half · build to moderate aerobic pace in the final third · walk/jog last 5 min';
+  if (/hill repeats?/.test(label)) {
+    return '10 min easy warmup · 6×90s hard effort uphill with jog-down recovery · 10 min easy cool-down';
+  }
+  if (/fartlek/.test(label))            return '10 min easy warmup · 8×(1 min surge / 2 min easy) by feel · 5 min cool-down';
+  if (/progression run/.test(label))    return 'Start easy · build pace through each third · finish the final segment at tempo effort';
+  if (/cruise intervals/.test(label)) {
+    const work = Math.max(15, Math.round(d * 0.55));
+    return `10 min warmup · ${work} min cruise intervals (e.g. 4×1.5 km at threshold, 60s jog rest) · 5 min cool-down`;
+  }
+  if (/negative.?split run/.test(label)) return 'Even, controlled first half · deliberately faster second half · finish strong, not spent';
+  if (/mixed.?tempo run/.test(label))    return '10 min warmup · alternate 3 min tempo / 2 min easy float through the main set · 5 min cool-down';
   if (/sweet spot/.test(label))         return '10 min warmup · 2–3×15 min sweet-spot efforts with 5 min easy between · 10 min cool-down';
+  if (/ftp threshold/.test(label)) {
+    const work = Math.max(20, Math.round(d * 0.5));
+    return `10 min warmup · ${work} min FTP threshold work (e.g. 2×15 min) with 5 min easy between · 10 min cool-down`;
+  }
+  if (/cadence drills?/.test(label))    return '10 min easy warmup · 10 min at 100+ rpm in an easy gear, smooth pedal stroke, low force · 10 min easy spin cool-down';
   if (/quality ride/.test(label)) {
     const work = Math.max(20, Math.round(d * 0.55));
     return `15 min warmup · ${work} min quality intervals (e.g. 3×8 min threshold) · 10 min cool-down`;
@@ -3442,17 +3490,18 @@ function getWorkoutStructure(label, type, duration) {
     const work = Math.max(20, Math.round(d * 0.55));
     return `15 min warmup · ${work} min at race effort · 10 min easy cool-down`;
   }
+  if (/pull set/.test(label))           return '200m warmup · pull buoy only, steady continuous swim · focus on upper-body pull, minimal kick · easy cool-down';
   if (/race.?sim|confidence brick|long brick/.test(label)) {
     const bikeMin = Math.round(d * 0.72);
     const runMin  = d - bikeMin;
     return `${bikeMin} min bike at race effort → fast T2 transition → ${runMin} min run at race pace · practice nutrition strategy`;
   }
-  if (/brick/.test(label)) {
+  if (/brick|bike to run transition/.test(label)) {
     const bikeMin = Math.round(d * 0.70);
     const runMin  = d - bikeMin;
     return `${bikeMin} min bike (moderate) → T2 → ${runMin} min run · focus on the first 500m — legs will feel heavy, stay patient`;
   }
-  if (/easy|recovery|opener|activation/.test(label)) return 'Continuous easy effort throughout — conversational pace, nose-breathing';
+  if (/easy|recovery|opener|activation|zone 2|active recovery/.test(label)) return 'Continuous easy effort throughout — conversational pace, nose-breathing';
   if (/race.?tune-up|tune.?up/.test(label))          return 'Treat it as a time trial — full warm-up, race effort, note your finishing time';
   return null;
 }
@@ -3486,10 +3535,10 @@ function getWorkoutDetails(act) {
   if (type === 'race')                                                                    effort = 5;
   else if (/\brace.?sim\b/.test(label))                                                  effort = 4;
   else if (/\brace.?pace\b/.test(label))                                                 effort = 4;
-  else if (/\b(intervals|quality ride|confidence brick)\b/.test(label))                  effort = 4;
-  else if (/\b(tempo|sweet spot|css intervals|hard)\b/.test(label))                      effort = 3;
-  else if (/\b(easy|recovery|opener|easy jog|easy long|short run|activation|taper)\b/.test(label)) effort = 1;
-  else if (/\b(long run|long ride|long brick|endurance|moderate)\b/.test(label))         effort = 2;
+  else if (/\b(intervals|quality ride|confidence brick|hill repeats?|cruise intervals|ftp threshold)\b/.test(label)) effort = 4;
+  else if (/\b(tempo|sweet spot|css intervals|hard|fartlek|progression run|negative.?split run|mixed.?tempo run)\b/.test(label)) effort = 3;
+  else if (/\b(easy|recovery|opener|easy jog|easy long|short run|activation|taper|active recovery|cadence drills?)\b/.test(label)) effort = 1;
+  else if (/\b(long run|long ride|long brick|endurance|moderate|pull set|zone 2)\b/.test(label))  effort = 2;
 
   // HR zones — personalized if we have max HR from Strava, else generic
   const maxHR = gAthleteZones?.maxHR || 185;
@@ -3565,15 +3614,24 @@ function getWorkoutDetails(act) {
   else if (/tempo run/.test(label))                 focus = 'Comfortably hard. Steady breathing, not gasping. Hold form through the final km.';
   else if (/race.?pace run/.test(label))            focus = 'Dial in race rhythm. Smooth and controlled — this is what race day feels like.';
   else if (/long run/.test(label))                  focus = 'Aerobic base builder. Finish feeling you could go 20% further.';
+  else if (/hill repeats?/.test(label))             focus = 'Drive with the arms, short quick steps on the uphill. Jog the downhill — that\'s your recovery, not free speed.';
+  else if (/fartlek/.test(label))                   focus = 'Play with pace by feel. Surges should feel strong, not desperate — ease off if form breaks down.';
+  else if (/progression run/.test(label))           focus = 'Patience early. The whole point is finishing faster than you started, not starting fast.';
+  else if (/cruise intervals/.test(label))          focus = 'Threshold, not max effort. Short rest is intentional — controlled discomfort, repeatable pace.';
+  else if (/negative.?split run/.test(label))       focus = 'Bank discipline, not time. A true negative split means holding back early on purpose.';
+  else if (/mixed.?tempo run/.test(label))          focus = 'Stay relaxed through the tempo floats. The easy segments are for recovery, not coasting to a stop.';
   else if (/sweet spot/.test(label))                focus = 'Heavy but not blown up. Hold steady power in the target band.';
+  else if (/ftp threshold/.test(label))             focus = 'Right at the edge of sustainable. If you\'re fading badly before the interval ends, back off 5% next time.';
+  else if (/cadence drills?/.test(label))           focus = 'Light pressure on the pedals, fast and smooth. This is a skill rep, not a fitness rep — stay easy.';
   else if (/long ride|long race.?pace ride/.test(label)) focus = 'Fuel every 45 min. Cadence 85–95 rpm. This is where your bike fitness is built.';
   else if (/quality ride/.test(label))              focus = 'Every interval counts. Make the hard efforts hard, the easy efforts easy.';
   else if (/race.?pace ride/.test(label))           focus = 'Mental race rehearsal. Practice your pacing strategy and nutrition timing.';
+  else if (/pull set/.test(label))                  focus = 'Buoy keeps the legs out of it — isolate the pull. Focus on a strong, even catch every stroke.';
   else if (/race.?sim|confidence brick|long brick/.test(label)) focus = 'Simulate race day. Practice transitions, nutrition, and mental pacing.';
-  else if (/brick/.test(label))                     focus = 'T2 practice. The first 500m run will feel heavy — stay relaxed, let the legs adapt.';
+  else if (/brick|bike to run transition/.test(label)) focus = 'T2 practice. The first 500m run will feel heavy — stay relaxed, let the legs adapt.';
   else if (/strides/.test(label))                   focus = '4–6 × 20s strides at mile effort. Full recovery between each. Finish fresh.';
   else if (/taper swim|taper/.test(label))          focus = 'Keep sharp, not tired. Maintain pace, reduce volume — trust the taper.';
-  else if (/easy|recovery|opener|activation/.test(label)) focus = 'Easy aerobic — keep it in Zone 2. If you can\'t hold a full sentence, slow down. Resist the urge to drift into Zone 3.';
+  else if (/easy|recovery|opener|activation|zone 2|active recovery/.test(label)) focus = 'Easy aerobic — keep it in Zone 2. If you can\'t hold a full sentence, slow down. Resist the urge to drift into Zone 3.';
 
   const structure = getWorkoutStructure(label, type, act.duration);
 
@@ -5425,7 +5483,7 @@ async function generateAiPlan() {
       throw new Error('the plan was too long to finish generating — try a shorter race or fewer phases');
     }
     const text    = data.content?.[0]?.text || '';
-    const jsonStr = text.match(/\{[\s\S]*\}/)?.[0];
+    const jsonStr = extractJson(text);
     if (!jsonStr) throw new Error('No JSON in response');
 
     const plan = sanitizeAiPlan(JSON.parse(jsonStr));
