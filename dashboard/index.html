@@ -1290,6 +1290,7 @@ footer{border-top:1px solid var(--border);background:var(--card);}
     <div class="aiq-step-card aiq-step hidden" data-step="3">
       <div class="aiq-step-title">What's your training background?</div>
       <p class="aiq-step-sub">Sets how much of the plan goes to base-building versus race-specific work.</p>
+      <div id="pro-q-strava-badge"></div>
       <div class="aiq-type-grid" id="pro-q-experience-grid"></div>
     </div>
 
@@ -4481,13 +4482,23 @@ const PRO_ORDER = ['frodeno', 'blummenfelt', 'iden', 'lange', 'sodaro', 'kipchog
 
 // Nudges how much of the window goes to base-building versus everything after it —
 // newer athletes get a longer on-ramp, competitive athletes spend more time at
-// race-specific intensity. Borrows/lends weeks between the first two phases only,
-// bounded so neither phase drops below 1 week.
+// race-specific intensity. Borrows/lends weeks between phases (never the final taper),
+// preferring base↔build first but falling back to any other non-taper phase with slack
+// so a phase already floored to 1 week doesn't silently swallow the athlete's choice.
 const PRO_EXPERIENCE_BASE_SHIFT = { new: 2, some: 0, experienced: -1, competitive: -2 };
 
+function parseHrsLowerBound(hrsStr) {
+  const m = /([\d.]+)/.exec(hrsStr || '');
+  return m ? parseFloat(m[1]) : null;
+}
+
 // Builds a pro-plan spec into a full plan object from the athlete's own answers
-// (race name, race date, training start, experience), scaling phase lengths to fit
-// their actual training window while preserving the spec's base/build/peak/taper mix.
+// (race name, race date, training start, experience, optional Strava-derived current
+// volume) scaling phase lengths to fit their actual training window while preserving
+// the spec's base/build/peak/taper mix. When Strava history is available (passed in as
+// answers.stravaAvgHours), it nudges the same base/build shift the experience answer
+// drives — real recent volume against the spec's own base-phase target — the same
+// "Strava as ground truth" principle the AI questionnaire applies elsewhere.
 function buildProPlanFromAnswers(id, answers) {
   const spec = PRO_SPECS[id];
   if (!spec) return null;
@@ -4502,13 +4513,29 @@ function buildProPlanFromAnswers(id, answers) {
     const idx = phases.reduce((best, p, i) => p.weeks > phases[best].weeks ? i : best, 0);
     phases[idx].weeks = Math.max(1, phases[idx].weeks + drift);
   }
-  const shift = PRO_EXPERIENCE_BASE_SHIFT[answers.experience] || 0;
+
+  let shift = PRO_EXPERIENCE_BASE_SHIFT[answers.experience] || 0;
+  if (Number.isFinite(answers.stravaAvgHours)) {
+    const baseLow = parseHrsLowerBound(spec.phases[0].hrs);
+    if (baseLow != null) {
+      if (answers.stravaAvgHours < baseLow - 2) shift += 1;       // training well below the plan's base — more on-ramp
+      else if (answers.stravaAvgHours > baseLow + 3) shift -= 1;  // already well past it — more race-specific work
+    }
+  }
   if (shift !== 0 && phases.length >= 2) {
-    const donorIdx  = shift > 0 ? 1 : 0;
     const targetIdx = shift > 0 ? 0 : 1;
-    const amount = Math.min(Math.abs(shift), phases[donorIdx].weeks - 1);
-    phases[donorIdx].weeks  -= amount;
-    phases[targetIdx].weeks += amount;
+    const preferredDonor = shift > 0 ? 1 : 0;
+    const taperIdx = phases.length - 1;
+    const donorOrder = [preferredDonor, ...phases.map((_, i) => i).filter(i => i !== targetIdx && i !== preferredDonor && i !== taperIdx)];
+    let remaining = Math.abs(shift);
+    for (const donorIdx of donorOrder) {
+      if (remaining <= 0 || donorIdx === taperIdx) continue;
+      const amount = Math.min(remaining, phases[donorIdx].weeks - 1);
+      if (amount <= 0) continue;
+      phases[donorIdx].weeks -= amount;
+      phases[targetIdx].weeks += amount;
+      remaining -= amount;
+    }
   }
   applyProPlanInjuries(phases, answers.injuries);
   return {
@@ -4523,8 +4550,11 @@ function buildProPlanFromAnswers(id, answers) {
 }
 
 // Free-text injury answer is matched against sport keywords (no AI for pro plans,
-// which are fixed templates) — any matched sport's sessions, including bricks that
-// include it, become rest. The athlete can fine-tune further in the builder.
+// which are fixed templates) — word-boundary matching so e.g. "strides" doesn't
+// false-positive on "ride", or "overrun" on "run". A brick session with only one leg
+// flagged is swapped for an easy session of the unaffected discipline rather than full
+// rest, matching the AI path's "substitute, don't just cut" injury philosophy; a brick
+// with both legs flagged becomes full rest. The athlete can fine-tune further in the builder.
 const PRO_INJURY_SPORT_KEYWORDS = {
   run:  ['run', 'running'],
   bike: ['bike', 'biking', 'cycle', 'cycling', 'ride'],
@@ -4533,13 +4563,20 @@ const PRO_INJURY_SPORT_KEYWORDS = {
 function applyProPlanInjuries(phases, injuriesText) {
   const lower = (injuriesText || '').toLowerCase();
   const sports = Object.keys(PRO_INJURY_SPORT_KEYWORDS)
-    .filter(sport => PRO_INJURY_SPORT_KEYWORDS[sport].some(kw => lower.includes(kw)));
+    .filter(sport => PRO_INJURY_SPORT_KEYWORDS[sport].some(kw => new RegExp(`\\b${kw}\\b`).test(lower)));
   if (!sports.length) return;
   const restDay = () => ['rest', 'Rest (injury modification)', 0];
   const modify = week => week && week.map(day => {
     const [type] = day;
-    return (sports.includes(type) || (type === 'brick' && sports.some(s => s === 'run' || s === 'bike')))
-      ? restDay() : day;
+    if (sports.includes(type)) return restDay();
+    if (type === 'brick') {
+      const runHit  = sports.includes('run');
+      const bikeHit = sports.includes('bike');
+      if (runHit && bikeHit) return restDay();
+      if (runHit)  return ['bike', 'Easy bike (run leg rested for injury)', 45];
+      if (bikeHit) return ['run', 'Easy run (bike leg rested for injury)', 30];
+    }
+    return day;
   });
   phases.forEach(ph => {
     ph.template = modify(ph.template);
@@ -4563,9 +4600,30 @@ async function applyProPlan(id, answers) {
 const PRO_Q_STEP_COUNT = 5;
 let proQStep      = 0;
 let proQAthleteId = null;
+let proQStravaSuggestions = null;
+
+// Maps recent Strava training volume to the closest experience tier so a connected
+// athlete's actual current load — not a one-size-fits-all default — is what the
+// experience question starts from (the athlete can still override it). The same
+// figure also nudges buildProPlanFromAnswers's base/build shift directly (see there).
+function proQExperienceFromStrava(s) {
+  if (s.avgHoursPerWeek < 3)  return 'new';
+  if (s.avgHoursPerWeek < 6)  return 'some';
+  if (s.avgHoursPerWeek < 10) return 'experienced';
+  return 'competitive';
+}
+
+function renderProQStravaBadge(suggestions) {
+  document.getElementById('pro-q-strava-badge').innerHTML = suggestions
+    ? `<div class="aiq-strava-badge"><em>✓</em> Based on your last ${suggestions.sessionCount} Strava activities (~${suggestions.avgHoursPerWeek} hrs/week), we've pre-selected an experience level below — tweak it if it doesn't look right.</div>`
+    : '';
+}
 
 // A few quick questions before loading a pro plan, so it's actually fit to the
-// athlete's race and schedule rather than dropped in with default dates.
+// athlete's race and schedule rather than dropped in with default dates. When Strava
+// history is available it informs the experience default/badge here and is passed
+// through to buildProPlanFromAnswers, the same "ground truth over self-report"
+// principle the AI questionnaire applies.
 function openProPlanQuestions(id) {
   const spec = PRO_SPECS[id];
   if (!spec) { toast('That plan could not be loaded.', { error: true }); return; }
@@ -4574,13 +4632,15 @@ function openProPlanQuestions(id) {
   document.getElementById('builder-actions').classList.add('hidden');
   document.getElementById('pro-q-body').classList.remove('hidden');
 
+  proQStravaSuggestions = deriveAiqStravaSuggestions();
   const totalWeeks = spec.phases.reduce((s, p) => s + p.weeks, 0);
   document.getElementById('pro-q-race-name').value   = spec.raceName;
   document.getElementById('pro-q-race-date').value   = trnDateStr(addDays(today, totalWeeks * 7));
   document.getElementById('pro-q-train-start').value = trnDateStr(today);
-  document.getElementById('pro-q-experience').value  = 'some';
+  document.getElementById('pro-q-experience').value  = proQStravaSuggestions ? proQExperienceFromStrava(proQStravaSuggestions) : 'some';
   document.getElementById('pro-q-injuries').value    = '';
   renderAiqCardGrid('pro-q-experience', 'pro-q-experience-grid', AIQ_EXPERIENCE_META);
+  renderProQStravaBadge(proQStravaSuggestions);
   proQShowStep(0);
 }
 
@@ -4595,19 +4655,14 @@ function proQShowStep(n) {
   document.querySelectorAll('#pro-q-body .aiq-step').forEach(el => {
     el.classList.toggle('hidden', +el.dataset.step !== proQStep);
   });
-  document.getElementById('pro-q-progress-label').textContent = `Question ${proQStep + 1} of ${PRO_Q_STEP_COUNT}`;
-  document.getElementById('pro-q-progress-fill').style.width = `${((proQStep + 1) / PRO_Q_STEP_COUNT) * 100}%`;
-  document.getElementById('pro-q-nav-back').textContent = proQStep === 0 ? 'Cancel' : '← Back';
-  document.getElementById('pro-q-error').classList.add('hidden');
-  document.getElementById('pro-q-nav-next').textContent = proQStep === PRO_Q_STEP_COUNT - 1 ? '✦ Load plan' : 'Next →';
-  window.scrollTo(0, 0);
+  wizardUpdateChrome({
+    progressLabelId: 'pro-q-progress-label', progressFillId: 'pro-q-progress-fill',
+    backBtnId: 'pro-q-nav-back', nextBtnId: 'pro-q-nav-next', errElId: 'pro-q-error',
+    pos: proQStep, total: PRO_Q_STEP_COUNT, nextLabel: '✦ Load plan',
+  });
 }
 
-function proQShowErr(msg) {
-  const errEl = document.getElementById('pro-q-error');
-  errEl.textContent = msg;
-  errEl.classList.remove('hidden');
-}
+function proQShowErr(msg) { wizardShowErr('pro-q-error', msg); }
 
 function proQValidateStep() {
   if (proQStep === 0 && !document.getElementById('pro-q-race-name').value.trim()) {
@@ -4634,11 +4689,12 @@ document.getElementById('pro-q-nav-next').addEventListener('click', () => {
   if (!proQValidateStep()) return;
   if (proQStep < PRO_Q_STEP_COUNT - 1) { proQShowStep(proQStep + 1); return; }
   applyProPlan(proQAthleteId, {
-    raceName:   document.getElementById('pro-q-race-name').value.trim(),
-    raceDate:   document.getElementById('pro-q-race-date').value,
-    trainStart: document.getElementById('pro-q-train-start').value,
-    experience: document.getElementById('pro-q-experience').value,
-    injuries:   document.getElementById('pro-q-injuries').value.trim(),
+    raceName:       document.getElementById('pro-q-race-name').value.trim(),
+    raceDate:       document.getElementById('pro-q-race-date').value,
+    trainStart:     document.getElementById('pro-q-train-start').value,
+    experience:     document.getElementById('pro-q-experience').value,
+    injuries:       document.getElementById('pro-q-injuries').value.trim(),
+    stravaAvgHours: proQStravaSuggestions?.avgHoursPerWeek ?? null,
   });
 });
 
@@ -4865,6 +4921,25 @@ function aiqVisibleSteps() {
   return steps;
 }
 
+// Shared chrome update for any one-question-at-a-time wizard in this file (the AI
+// builder and the pro-plan questionnaire): progress label/bar, Back/Next button text,
+// and clearing the error banner. Each wizard still owns its own step-visibility logic
+// (the AI builder's varies with Strava/race-type; the pro-plan one doesn't need to).
+function wizardUpdateChrome({ progressLabelId, progressFillId, backBtnId, nextBtnId, errElId, pos, total, nextLabel }) {
+  document.getElementById(progressLabelId).textContent = `Question ${pos + 1} of ${total}`;
+  document.getElementById(progressFillId).style.width = `${((pos + 1) / total) * 100}%`;
+  document.getElementById(backBtnId).textContent = pos === 0 ? 'Cancel' : '← Back';
+  document.getElementById(errElId).classList.add('hidden');
+  document.getElementById(nextBtnId).textContent = pos === total - 1 ? nextLabel : 'Next →';
+  window.scrollTo(0, 0);
+}
+
+function wizardShowErr(errElId, msg) {
+  const errEl = document.getElementById(errElId);
+  errEl.textContent = msg;
+  errEl.classList.remove('hidden');
+}
+
 function aiqShowStep(n) {
   aiqStep = Math.max(0, Math.min(AIQ_STEP_COUNT - 1, n));
   document.querySelectorAll('#ai-builder-body .aiq-step').forEach(el => {
@@ -4872,20 +4947,14 @@ function aiqShowStep(n) {
   });
   const visible = aiqVisibleSteps();
   const pos = Math.max(0, visible.indexOf(aiqStep));
-  document.getElementById('aiq-progress-label').textContent = `Question ${pos + 1} of ${visible.length}`;
-  document.getElementById('aiq-progress-fill').style.width = `${((pos + 1) / visible.length) * 100}%`;
-  document.getElementById('aiq-nav-back').textContent = pos === 0 ? 'Cancel' : '← Back';
-  document.getElementById('ai-builder-error').classList.add('hidden');
-  const nextBtn = document.getElementById('aiq-nav-next');
-  nextBtn.textContent = pos === visible.length - 1 ? '✦ Generate plan' : 'Next →';
-  window.scrollTo(0, 0);
+  wizardUpdateChrome({
+    progressLabelId: 'aiq-progress-label', progressFillId: 'aiq-progress-fill',
+    backBtnId: 'aiq-nav-back', nextBtnId: 'aiq-nav-next', errElId: 'ai-builder-error',
+    pos, total: visible.length, nextLabel: '✦ Generate plan',
+  });
 }
 
-function aiqShowErr(msg) {
-  const errEl = document.getElementById('ai-builder-error');
-  errEl.textContent = msg;
-  errEl.classList.remove('hidden');
-}
+function aiqShowErr(msg) { wizardShowErr('ai-builder-error', msg); }
 
 // Only the fields needed to move forward are validated — everything else is optional
 // and gets sensible defaults at generation time, so the wizard never blocks on trivia.
