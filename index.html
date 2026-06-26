@@ -386,7 +386,8 @@ section:first-of-type{border-top:none;}
           <input type="checkbox" id="register-consent">
           <span class="auth-consent-label">I agree to the <a href="#" id="open-tos">Terms of Service</a> and <a href="#" id="open-privacy">Privacy Policy</a></span>
         </label>
-        <button class="btn btn-primary btn-block" type="submit" id="register-submit" disabled>Create account →</button>
+        <div class="auth-error" id="consent-error" aria-live="polite"></div>
+        <button class="btn btn-primary btn-block" type="submit" id="register-submit">Create account →</button>
       </form>
 
       <!-- Log in -->
@@ -666,6 +667,11 @@ document.getElementById('connect-skip-btn').addEventListener('click', () => {
 
 registerForm.addEventListener('submit', (e) => {
   e.preventDefault();
+  if (!consentBox.checked) {
+    consentError.textContent = 'Please agree to the Terms of Service and Privacy Policy to continue.';
+    consentBox.focus();
+    return;
+  }
   submitAuth('/auth/register', document.getElementById('register-email').value.trim(), document.getElementById('register-password').value, document.getElementById('register-error'), showConnectPrompt);
 });
 
@@ -679,8 +685,8 @@ routeFromHash();
 
 // ── Consent checkbox ──────────────────────────────────────────
 const consentBox   = document.getElementById('register-consent');
-const registerBtn  = document.getElementById('register-submit');
-consentBox.addEventListener('change', () => { registerBtn.disabled = !consentBox.checked; });
+const consentError = document.getElementById('consent-error');
+consentBox.addEventListener('change', () => { if (consentBox.checked) consentError.textContent = ''; });
 
 // ── Legal modals ──────────────────────────────────────────────
 function openLegal(overlayId) {
