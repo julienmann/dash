@@ -70,6 +70,12 @@ export default {
       return handleVerifyEmail(req, env, allowedOrigins);
     }
 
+    // Calendar apps poll the feed URL directly with no Origin/Referer, so this route also
+    // sits ahead of the origin gate. It's read-only and gated by the per-user secret token.
+    if (url.pathname === '/calendar' && req.method === 'GET') {
+      return handleCalendarFeed(req, env);
+    }
+
     if (req.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(allowOrigin) });
     }
@@ -83,10 +89,17 @@ export default {
     if (url.pathname === '/auth/register'            && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'auth', handleRegister);
     if (url.pathname === '/auth/login'                && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'auth', handleLogin);
     if (url.pathname === '/auth/resend-verification'  && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'auth', handleResendVerification);
+    if (url.pathname === '/auth/forgot-password'      && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'auth', handleForgotPassword);
+    if (url.pathname === '/auth/reset-password'       && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'auth', handleResetPassword);
+    if (url.pathname === '/auth/change-password'      && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'auth', handleChangePassword);
     if (url.pathname === '/plan'          && req.method === 'GET')  return handleGetPlan(req, env, allowOrigin);
     if (url.pathname === '/plan'          && req.method === 'PUT')  return handlePutPlan(req, env, allowOrigin);
+    if (url.pathname === '/plan'          && req.method === 'DELETE') return handleDeletePlan(req, env, allowOrigin);
     if (url.pathname === '/account'       && req.method === 'GET')  return handleGetAccount(req, env, allowOrigin);
     if (url.pathname === '/account'       && req.method === 'DELETE') return withRateLimit(req, env, allowOrigin, 'auth', handleDeleteAccount);
+    if (url.pathname === '/calendar/token' && req.method === 'POST')   return handleCalendarToken(req, env, allowOrigin);
+    if (url.pathname === '/calendar/token' && req.method === 'DELETE') return handleCalendarTokenDelete(req, env, allowOrigin);
+    if (url.pathname === '/account/reminders' && req.method === 'POST') return handleSetReminders(req, env, allowOrigin);
 
     if (url.pathname === '/ai' && req.method === 'POST') return withRateLimit(req, env, allowOrigin, 'ai', handleAi);
 
@@ -99,7 +112,55 @@ export default {
 
     return json({ error: 'Not found' }, 404, allowOrigin);
   },
+
+  // Hourly cron (see wrangler.toml [triggers]): sends "today's workout" emails to
+  // opted-in, verified users whose local time is 6 AM. Rest days send nothing —
+  // the quiet coach doesn't email to say "do nothing today".
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil(sendDailyReminders(env));
+  },
 };
+
+async function sendDailyReminders(env) {
+  if (!env.DB || !env.RESEND_API_KEY) return;
+
+  const { results } = await env.DB.prepare(
+    'SELECT u.email, u.tz, p.schedule_json FROM users u JOIN plans p ON p.user_id = u.id ' +
+    'WHERE u.reminders = 1 AND u.email_verified = 1 AND p.schedule_json IS NOT NULL'
+  ).all();
+
+  for (const row of results || []) {
+    try {
+      const tz = row.tz || 'UTC';
+      const hour = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hour12: false }).format(new Date());
+      if (parseInt(hour, 10) !== 6) continue; // not 6 AM in this user's zone
+
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+      const sessions = JSON.parse(row.schedule_json).filter(s => s.date === today && s.type !== 'rest');
+      if (!sessions.length) continue;
+
+      const list = sessions.map(s => {
+        const sport = String(s.type || '').replace(/^./, c => c.toUpperCase());
+        const mins  = s.duration > 0 ? ` — ${Math.round(s.duration)} min` : '';
+        return `<li><strong>[${sport}]</strong> ${escapeHtml(s.label || sport)}${mins}</li>`;
+      }).join('');
+      const first   = sessions[0];
+      const subject = sessions.length === 1
+        ? `Today: ${first.label || first.type}${first.duration > 0 ? ` — ${Math.round(first.duration)} min` : ''}`
+        : `Today: ${sessions.length} sessions`;
+
+      await sendEmail(env, row.email, subject,
+        `<p>On the plan today:</p><ul>${list}</ul>` +
+        `<p style="color:#666;font-size:13px;">You can turn these emails off any time from your account menu on the dashboard.</p>`);
+    } catch (e) {
+      console.error('[reminders] failed for a user', e);
+    }
+  }
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 // ── Rate limiting (KV-optional) ──────────────────────────────────
 // Fixed-window counter keyed on client IP. No-ops when env.RATE_LIMIT (a KV namespace) is
@@ -187,9 +248,15 @@ async function handleGetAccount(req, env, allowOrigin) {
   const userId = await requireSession(req, env);
   if (!userId) return json({ error: 'Not authenticated' }, 401, allowOrigin);
 
-  const user = await env.DB.prepare('SELECT email, created_at, email_verified FROM users WHERE id = ?').bind(userId).first();
+  const user = await env.DB.prepare('SELECT email, created_at, email_verified, calendar_token, reminders FROM users WHERE id = ?').bind(userId).first();
   if (!user) return json({ error: 'Account not found' }, 404, allowOrigin);
-  return json({ email: user.email, createdAt: user.created_at, verified: !!user.email_verified }, 200, allowOrigin);
+  return json({
+    email:       user.email,
+    createdAt:   user.created_at,
+    verified:    !!user.email_verified,
+    reminders:   !!user.reminders,
+    calendarUrl: user.calendar_token ? `${new URL(req.url).origin}/calendar?t=${user.calendar_token}` : null,
+  }, 200, allowOrigin);
 }
 
 // ── Email confirmation ───────────────────────────────────────────
@@ -245,7 +312,14 @@ async function sendVerificationLink(req, env, allowOrigin, userId, email) {
 }
 
 async function sendVerificationEmail(env, to, verifyUrl) {
-  if (!env.RESEND_API_KEY) { console.error('[email] RESEND_API_KEY not set — skipping verification email'); return; }
+  await sendEmail(env, to, 'Confirm your email',
+    `<p>Welcome — click below to confirm your email and finish setting up your account.</p>` +
+    `<p><a href="${verifyUrl}">Confirm email address</a></p>` +
+    `<p>This link expires in 24 hours. You can keep using the dashboard before confirming — this just verifies it's really you.</p>`);
+}
+
+async function sendEmail(env, to, subject, html) {
+  if (!env.RESEND_API_KEY) { console.error('[email] RESEND_API_KEY not set — skipping email'); return; }
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method:  'POST',
@@ -253,16 +327,92 @@ async function sendVerificationEmail(env, to, verifyUrl) {
       body: JSON.stringify({
         from:    env.EMAIL_FROM || 'Training Dashboard <onboarding@resend.dev>',
         to:      [to],
-        subject: 'Confirm your email',
-        html: `<p>Welcome — click below to confirm your email and finish setting up your account.</p>` +
-              `<p><a href="${verifyUrl}">Confirm email address</a></p>` +
-              `<p>This link expires in 24 hours. You can keep using the dashboard before confirming — this just verifies it's really you.</p>`,
+        subject,
+        html,
       }),
     });
     if (!res.ok) console.error('[email] Resend send failed', res.status, await res.text());
   } catch (e) {
     console.error('[email] failed to reach Resend', e);
   }
+}
+
+// ── Password reset / change ──────────────────────────────────────
+
+const RESET_TOKEN_TTL_MS = 1000 * 60 * 30; // 30 minutes
+
+async function handleForgotPassword(req, env, allowOrigin) {
+  if (!env.DB) return json({ error: 'Accounts not configured — bind a D1 database as DB' }, 503, allowOrigin);
+
+  let body;
+  try { body = await req.json(); }
+  catch { return json({ error: 'Invalid JSON body' }, 400, allowOrigin); }
+
+  const email = String(body.email || '').trim().toLowerCase();
+  // Always answer ok — revealing whether an email has an account enables enumeration.
+  const user = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+  if (user) {
+    await env.DB.prepare('DELETE FROM reset_tokens WHERE user_id = ?').bind(user.id).run();
+    const token = b64encode(crypto.getRandomValues(new Uint8Array(32)));
+    await env.DB.prepare('INSERT INTO reset_tokens (token, user_id, expires_at) VALUES (?, ?, ?)')
+      .bind(token, user.id, Date.now() + RESET_TOKEN_TTL_MS).run();
+    const resetUrl = `${allowOrigin}/?reset=${token}`;
+    await sendEmail(env, email, 'Reset your password',
+      `<p>Someone (hopefully you) asked to reset the password for this account.</p>` +
+      `<p><a href="${resetUrl}">Choose a new password</a></p>` +
+      `<p>This link expires in 30 minutes. If you didn't ask for this, you can ignore it — your password is unchanged.</p>`);
+  }
+  return json({ ok: true }, 200, allowOrigin);
+}
+
+async function handleResetPassword(req, env, allowOrigin) {
+  if (!env.DB) return json({ error: 'Accounts not configured — bind a D1 database as DB' }, 503, allowOrigin);
+  if (!env.SESSION_SECRET) return json({ error: 'Accounts not configured — set SESSION_SECRET secret' }, 503, allowOrigin);
+
+  let body;
+  try { body = await req.json(); }
+  catch { return json({ error: 'Invalid JSON body' }, 400, allowOrigin); }
+
+  const token    = String(body.token || '');
+  const password = String(body.password || '');
+  if (password.length < 8) return json({ error: 'Password must be at least 8 characters' }, 400, allowOrigin);
+
+  const row = await env.DB.prepare('SELECT user_id, expires_at FROM reset_tokens WHERE token = ?').bind(token).first();
+  if (!row || row.expires_at < Date.now()) {
+    if (row) await env.DB.prepare('DELETE FROM reset_tokens WHERE token = ?').bind(token).run();
+    return json({ error: 'This reset link has expired — request a new one' }, 400, allowOrigin);
+  }
+
+  const passwordHash = await hashPassword(password);
+  await env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(passwordHash, row.user_id).run();
+  await env.DB.prepare('DELETE FROM reset_tokens WHERE user_id = ?').bind(row.user_id).run();
+
+  // Log the user straight in — they just proved control of the email.
+  const user = await env.DB.prepare('SELECT email, email_verified FROM users WHERE id = ?').bind(row.user_id).first();
+  const sessionToken = await signSession(env, row.user_id);
+  return json({ token: sessionToken, email: user.email, verified: !!user.email_verified }, 200, allowOrigin);
+}
+
+async function handleChangePassword(req, env, allowOrigin) {
+  if (!env.DB) return json({ error: 'Accounts not configured — bind a D1 database as DB' }, 503, allowOrigin);
+  const userId = await requireSession(req, env);
+  if (!userId) return json({ error: 'Not authenticated' }, 401, allowOrigin);
+
+  let body;
+  try { body = await req.json(); }
+  catch { return json({ error: 'Invalid JSON body' }, 400, allowOrigin); }
+
+  const current = String(body.currentPassword || '');
+  const next    = String(body.newPassword || '');
+  if (next.length < 8) return json({ error: 'New password must be at least 8 characters' }, 400, allowOrigin);
+
+  const user = await env.DB.prepare('SELECT password_hash FROM users WHERE id = ?').bind(userId).first();
+  if (!user) return json({ error: 'Account not found' }, 404, allowOrigin);
+  const ok = await verifyPassword(current, user.password_hash);
+  if (!ok) return json({ error: 'Current password is incorrect' }, 401, allowOrigin);
+
+  await env.DB.prepare('UPDATE users SET password_hash = ? WHERE id = ?').bind(await hashPassword(next), userId).run();
+  return json({ ok: true }, 200, allowOrigin);
 }
 
 async function handleDeleteAccount(req, env, allowOrigin) {
@@ -282,8 +432,112 @@ async function handleDeleteAccount(req, env, allowOrigin) {
   if (!ok) return json({ error: 'Incorrect password' }, 401, allowOrigin);
 
   await env.DB.prepare('DELETE FROM plans WHERE user_id = ?').bind(userId).run();
+  await env.DB.prepare('DELETE FROM verification_tokens WHERE user_id = ?').bind(userId).run();
+  await env.DB.prepare('DELETE FROM reset_tokens WHERE user_id = ?').bind(userId).run();
   await env.DB.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
   return json({ ok: true }, 200, allowOrigin);
+}
+
+// ── Calendar feed (per-user ICS subscription) ────────────────────
+// The dashboard pushes its computed day-by-day schedule on every plan sync, and the
+// feed renders straight from that — so a subscribed calendar always mirrors the app,
+// including AI edits and rule-engine reschedules, with nothing to re-download.
+
+async function handleCalendarToken(req, env, allowOrigin) {
+  if (!env.DB) return json({ error: 'Accounts not configured — bind a D1 database as DB' }, 503, allowOrigin);
+  const userId = await requireSession(req, env);
+  if (!userId) return json({ error: 'Not authenticated' }, 401, allowOrigin);
+
+  const user = await env.DB.prepare('SELECT calendar_token FROM users WHERE id = ?').bind(userId).first();
+  if (!user) return json({ error: 'Account not found' }, 404, allowOrigin);
+
+  let token = user.calendar_token;
+  if (!token) {
+    token = b64encode(crypto.getRandomValues(new Uint8Array(24)));
+    await env.DB.prepare('UPDATE users SET calendar_token = ? WHERE id = ?').bind(token, userId).run();
+  }
+  const feedUrl = `${new URL(req.url).origin}/calendar?t=${token}`;
+  return json({ url: feedUrl }, 200, allowOrigin);
+}
+
+async function handleCalendarTokenDelete(req, env, allowOrigin) {
+  if (!env.DB) return json({ error: 'Accounts not configured — bind a D1 database as DB' }, 503, allowOrigin);
+  const userId = await requireSession(req, env);
+  if (!userId) return json({ error: 'Not authenticated' }, 401, allowOrigin);
+  await env.DB.prepare('UPDATE users SET calendar_token = NULL WHERE id = ?').bind(userId).run();
+  return json({ ok: true }, 200, allowOrigin);
+}
+
+async function handleCalendarFeed(req, env) {
+  const token = new URL(req.url).searchParams.get('t') || '';
+  if (!env.DB || !token) return new Response('Not found', { status: 404 });
+
+  const user = await env.DB.prepare('SELECT id FROM users WHERE calendar_token = ?').bind(token).first();
+  if (!user) return new Response('Not found', { status: 404 });
+
+  const row = await env.DB.prepare('SELECT plan_json, schedule_json FROM plans WHERE user_id = ?').bind(user.id).first();
+  const schedule = row?.schedule_json ? JSON.parse(row.schedule_json) : [];
+  let raceName = 'Training Plan';
+  try { raceName = JSON.parse(row.plan_json).raceName || raceName; } catch { /* keep default */ }
+
+  const icsEscape = s => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//jm-dashboard//training-plan//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${icsEscape(raceName)} — Training`,
+    'X-PUBLISHED-TTL:PT6H',
+  ];
+  const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  for (const s of schedule) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s.date || '') || s.type === 'rest') continue;
+    const d0 = s.date.replace(/-/g, '');
+    const next = new Date(`${s.date}T00:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    const d1 = next.toISOString().slice(0, 10).replace(/-/g, '');
+    const sport = String(s.type || '').replace(/^./, c => c.toUpperCase());
+    const mins  = Number(s.duration) > 0 ? ` — ${Math.round(s.duration)} min` : '';
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:${s.date}-${icsEscape(s.type)}@jm-dashboard`,
+      `DTSTAMP:${now}`,
+      `DTSTART;VALUE=DATE:${d0}`,
+      `DTEND;VALUE=DATE:${d1}`,
+      `SUMMARY:${icsEscape(`[${sport}] ${s.label || sport}${mins}`)}`,
+      ...(s.phase ? [`DESCRIPTION:${icsEscape(`Phase: ${s.phase}`)}`] : []),
+      'END:VEVENT'
+    );
+  }
+  lines.push('END:VCALENDAR');
+  return new Response(lines.join('\r\n'), {
+    headers: {
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Cache-Control': 'max-age=3600',
+    },
+  });
+}
+
+// ── Email reminder preference ────────────────────────────────────
+
+async function handleSetReminders(req, env, allowOrigin) {
+  if (!env.DB) return json({ error: 'Accounts not configured — bind a D1 database as DB' }, 503, allowOrigin);
+  const userId = await requireSession(req, env);
+  if (!userId) return json({ error: 'Not authenticated' }, 401, allowOrigin);
+
+  let body;
+  try { body = await req.json(); }
+  catch { return json({ error: 'Invalid JSON body' }, 400, allowOrigin); }
+
+  const enabled = body.enabled ? 1 : 0;
+  // IANA zone from the browser (Intl.DateTimeFormat().resolvedOptions().timeZone);
+  // validated by actually trying to format with it.
+  let tz = String(body.tz || 'UTC');
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); } catch { tz = 'UTC'; }
+
+  await env.DB.prepare('UPDATE users SET reminders = ?, tz = ? WHERE id = ?').bind(enabled, tz, userId).run();
+  return json({ ok: true, reminders: !!enabled }, 200, allowOrigin);
 }
 
 // ── Plan sync ────────────────────────────────────────────────────
@@ -312,13 +566,40 @@ async function handlePutPlan(req, env, allowOrigin) {
     return json({ error: 'Plan too large' }, 413, allowOrigin);
   }
 
+  // Optional client-computed day-by-day schedule — feeds the calendar feed and
+  // reminder emails. Kept as a sanitized flat list, capped so it can't balloon.
+  let scheduleJson = null;
+  if (Array.isArray(body.schedule)) {
+    const clean = body.schedule.slice(0, 1000)
+      .filter(s => s && /^\d{4}-\d{2}-\d{2}$/.test(String(s.date || '')))
+      .map(s => ({
+        date:     s.date,
+        type:     String(s.type || '').slice(0, 20),
+        label:    String(s.label || '').slice(0, 200),
+        duration: Number(s.duration) || 0,
+        ...(s.phase ? { phase: String(s.phase).slice(0, 100) } : {}),
+      }));
+    scheduleJson = JSON.stringify(clean);
+    if (new TextEncoder().encode(scheduleJson).length > PLAN_MAX_BYTES) scheduleJson = null;
+  }
+
   const updatedAt = Date.now();
   await env.DB.prepare(
-    'INSERT INTO plans (user_id, plan_json, updated_at) VALUES (?, ?, ?) ' +
-    'ON CONFLICT(user_id) DO UPDATE SET plan_json = excluded.plan_json, updated_at = excluded.updated_at'
-  ).bind(userId, planJson, updatedAt).run();
+    'INSERT INTO plans (user_id, plan_json, schedule_json, updated_at) VALUES (?, ?, ?, ?) ' +
+    'ON CONFLICT(user_id) DO UPDATE SET plan_json = excluded.plan_json, schedule_json = excluded.schedule_json, updated_at = excluded.updated_at'
+  ).bind(userId, planJson, scheduleJson, updatedAt).run();
 
   return json({ ok: true, updatedAt }, 200, allowOrigin);
+}
+
+// Used when the athlete archives a finished plan — clears the synced copy so the
+// next device pull doesn't resurrect it while they build the next block.
+async function handleDeletePlan(req, env, allowOrigin) {
+  if (!env.DB) return json({ error: 'Accounts not configured — bind a D1 database as DB' }, 503, allowOrigin);
+  const userId = await requireSession(req, env);
+  if (!userId) return json({ error: 'Not authenticated' }, 401, allowOrigin);
+  await env.DB.prepare('DELETE FROM plans WHERE user_id = ?').bind(userId).run();
+  return json({ ok: true }, 200, allowOrigin);
 }
 
 // ── Strava token exchange ────────────────────────────────────────

@@ -510,6 +510,31 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .nw-dot{width:7px;height:7px;border-radius:50%;background:var(--border);}
 .nw-effort-txt{font-size:.7rem;font-weight:600;color:var(--mid);margin-left:.15rem;}
 .nw-zone-pip{width:7px;height:7px;border-radius:50%;flex-shrink:0;display:inline-block;}
+/* ── Wellness check-in strip ── */
+.wellness-strip{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:.7rem 1.1rem;margin-top:.9rem;}
+.wellness-q{font-size:.78rem;color:var(--mid);}
+.wellness-q strong{color:var(--fg);font-weight:700;}
+.wellness-btns{display:flex;gap:.4rem;}
+.wellness-btn{width:38px;height:38px;border-radius:8px;border:1.5px solid var(--border);background:var(--bg);color:var(--fg);font-size:.82rem;font-weight:700;transition:all .15s;}
+.wellness-btn:hover{border-color:var(--orange-strong);color:var(--orange-strong);}
+.wellness-change{font-size:.7rem;font-weight:600;color:var(--mid);padding:.3rem .55rem;border:1.5px solid var(--border);border-radius:6px;transition:all .15s;}
+.wellness-change:hover{border-color:var(--fg);color:var(--fg);}
+.prog-predict{font-size:.72rem;color:var(--mid);margin-top:.45rem;font-variant-numeric:tabular-nums;}
+.prog-predict strong{font-weight:700;color:var(--fg);}
+/* ── Training Zones panel ── */
+.zones-section{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:1.25rem;margin-top:1.5rem;}
+.zones-hdr{display:flex;align-items:center;justify-content:space-between;gap:.75rem;}
+.zones-title{font-size:.85rem;font-weight:700;}
+.zones-reset{font-size:.7rem;font-weight:600;color:var(--mid);padding:.3rem .55rem;border:1.5px solid var(--border);border-radius:6px;transition:all .15s;}
+.zones-reset:hover{border-color:var(--fg);color:var(--fg);}
+.zones-sub{font-size:.72rem;color:var(--mid);line-height:1.5;margin:.4rem 0 1rem;}
+.zones-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1rem;}
+.zones-sport-title{font-size:.68rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--mid);margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem;}
+.zones-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;}
+.zones-band-label{font-size:.74rem;font-weight:600;color:var(--fg);width:5.2rem;flex-shrink:0;}
+.zones-input{flex:1;min-width:0;font-size:.78rem;padding:.32rem .5rem;border:1.5px solid var(--border);border-radius:6px;background:var(--bg);color:var(--fg);font-variant-numeric:tabular-nums;}
+.zones-input.overridden{border-color:var(--orange-strong);}
+.zones-unit{font-size:.66rem;color:var(--mid);white-space:nowrap;flex-shrink:0;}
 .nw-stat-unit{font-size:.63rem;color:var(--mid);font-weight:500;margin-left:.15rem;}
 .nw-focus{font-size:.69rem;color:var(--mid);line-height:1.6;padding:.45rem .6rem;background:var(--bg);border-radius:6px;margin-bottom:.6rem;font-style:italic;}
 .nw-date{font-size:.7rem;color:var(--mid);}
@@ -633,15 +658,6 @@ footer{border-top:1px solid var(--border);background:var(--card);}
 .builder-checkbox-row input{width:15px;height:15px;accent-color:var(--orange);cursor:pointer;}
 .builder-add-btn{font-size:.75rem;font-weight:700;color:var(--orange-strong);padding:.55rem .8rem;border:1.5px dashed var(--border);border-radius:8px;width:100%;text-align:center;transition:all .15s;margin-bottom:1.25rem;}
 .builder-add-btn:hover{border-color:var(--orange-strong);background:var(--orange-dim);}
-.bldr-simple-list{border:1.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:1rem;}
-.bldr-simple-row{display:flex;align-items:center;gap:.6rem;padding:.6rem .75rem;border-bottom:1px solid var(--border);}
-.bldr-simple-row:last-child{border-bottom:none;}
-.bldr-simple-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
-.bldr-simple-name{flex:1;font-size:.8rem;font-weight:600;color:var(--fg);}
-.bldr-simple-meta{font-size:.75rem;color:var(--mid);white-space:nowrap;}
-.bldr-simple-meta--empty{padding:.1rem 0;}
-.bldr-simple-rm{font-size:.75rem;color:var(--mid);padding:.1rem .2rem;border-radius:4px;line-height:1;transition:color .12s;}
-.bldr-simple-rm:hover{color:var(--red);}
 .bldr-back-link{font-size:.75rem;font-weight:600;color:var(--mid);padding:.3rem 0;display:inline-flex;align-items:center;gap:.3rem;transition:color .12s;margin-bottom:.75rem;}
 .bldr-back-link:hover{color:var(--fg);}
 /* Entry CTAs (Load preset / Start AI) start a flow, so they use a solid border —
@@ -1000,9 +1016,11 @@ textarea.aiq-big-input{line-height:1.4;min-height:7.5rem;}
     <span class="prog-label prog-label-race" id="prog-label-right"></span>
   </div>
   <div class="prog-wrap"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+  <div class="prog-predict hidden" id="prog-predict"></div>
 
   <div id="hero-wrap">
     <section class="hero" id="hero"></section>
+    <div class="wellness-strip hidden" id="wellness-strip"></div>
     <div class="timeline-wrap" id="timeline-wrap"></div>
     <section class="cal-section" id="cal-section">
       <div class="cal-hdr">
@@ -1024,6 +1042,15 @@ textarea.aiq-big-input{line-height:1.4;min-height:7.5rem;}
   </div>
 
   <div id="ai-panel" class="ai-panel hidden"></div>
+
+  <section class="zones-section hidden" id="zones-section">
+    <div class="zones-hdr">
+      <h2 class="zones-title">Training Zones</h2>
+      <button class="zones-reset" id="zones-reset-btn" type="button">Reset to derived</button>
+    </div>
+    <p class="zones-sub" id="zones-sub"></p>
+    <div class="zones-grid" id="zones-body"></div>
+  </section>
 
   <section class="recent-acts-section hidden" id="recent-acts-section">
     <div class="sec-hdr">
@@ -1475,14 +1502,53 @@ const SESSION_KEY = 'jm_session_v1';
 function getSession()  { try { return JSON.parse(localStorage.getItem(SESSION_KEY)); } catch { return null; } }
 function clearSession(){ localStorage.removeItem(SESSION_KEY); }
 
+// Flat day-by-day export of the plan — what the worker's calendar feed and reminder
+// emails render from. Computed from the plan being pushed (not the loaded globals),
+// because savePlan() pushes the *new* plan before the page reloads. When the pushed
+// plan IS the currently-loaded one, live AI/rule-engine overrides are layered in so a
+// subscribed calendar tracks reschedules too.
+function buildScheduleExport(plan) {
+  try {
+    const cp  = computePlan(plan);
+    const live = JSON.stringify(plan) === JSON.stringify(RAW_PLAN);
+    const out = [];
+    for (let d = new Date(cp.trainStart); d <= cp.raceDate && out.length < 1000; d = addDays(d, 1)) {
+      const ds = trnDateStr(d);
+      let s = live ? (gAiOverrides[ds]?.session || gOverrides[ds]?.session || null) : null;
+      if (!s) {
+        if (cp.raceEvents[ds]) s = cp.raceEvents[ds];
+        else {
+          let tmpl = null;
+          for (const ov of cp.raceWeekOverrides) {
+            if (d >= ov.mon && d < addDays(ov.mon, 7)) { tmpl = ov.template; break; }
+          }
+          const phase = cp.phases.find(p => ds >= p.start && ds <= p.end);
+          if (!tmpl && phase) {
+            const wip   = Math.floor((startOfDay(d) - mondayOf(new Date(phase.start + 'T00:00:00'))) / (7*86400000)) + 1;
+            const isRec = phase.recoveryEvery > 0 && (wip % phase.recoveryEvery === 0);
+            tmpl = (isRec && phase.recoveryTemplate) ? phase.recoveryTemplate : phase.template;
+          }
+          if (tmpl) { const [type, label, duration] = tmpl[dayOfWeek(d)] || ['rest','Rest Day',0]; s = { type, label, duration }; }
+        }
+      }
+      if (!s) continue;
+      const phase = cp.phases.find(p => ds >= p.start && ds <= p.end);
+      out.push({ date: ds, type: s.type, label: s.label, duration: s.duration, ...(phase ? { phase: phase.name } : {}) });
+    }
+    return out;
+  } catch { return null; }
+}
+
 async function pushPlanToServer(plan) {
   const session = getSession();
   if (!session) return;
+  plan = plan || loadRawPlan();
+  const schedule = buildScheduleExport(plan);
   try {
     await fetch(WORKER_URL + '/plan', {
       method:  'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.token },
-      body:    JSON.stringify({ plan }),
+      body:    JSON.stringify({ plan, ...(schedule ? { schedule } : {}) }),
     });
   } catch {}
 }
@@ -1929,6 +1995,90 @@ function adaptPlan() {
   }
 
   gOverrides = tmp;
+  applyWellnessAdaptation();
+}
+
+// ── Daily wellness check-in ──────────────────────────────────────
+// One tap ("How ready do you feel?" 1–5) that the rule engine can act on *before*
+// a bad session happens — Strava data only shows fatigue after the fact.
+const WELLNESS_KEY = 'jm_wellness_v1';
+
+function loadWellness() {
+  try { return JSON.parse(localStorage.getItem(WELLNESS_KEY)) || {}; } catch { return {}; }
+}
+function saveWellness(dateStr, score) {
+  const all = loadWellness();
+  if (score) all[dateStr] = score; else delete all[dateStr];
+  // prune entries older than 30 days so the store doesn't grow forever
+  const cutoff = trnDateStr(addDays(today, -30));
+  for (const k of Object.keys(all)) if (k < cutoff) delete all[k];
+  localStorage.setItem(WELLNESS_KEY, JSON.stringify(all));
+}
+function todayWellness() { return loadWellness()[trnDateStr(today)] || null; }
+
+// A low check-in eases today's session in gOverrides: 1/5 → full rest, 2/5 → shorter
+// easy version. Races are never touched. Re-runnable: clears its own previous entry
+// first so upgrading the score restores the original session.
+function applyWellnessAdaptation() {
+  const ds = trnDateStr(today);
+  if (gOverrides[ds]?.wellness) delete gOverrides[ds];
+  const score = todayWellness();
+  if (!score || score > 2) return;
+  const base = gAiOverrides[ds]?.session || gOverrides[ds]?.session || getBaseActivity(today);
+  if (!base || base.type === 'rest' || base.type === 'race') return;
+  if (score === 1) {
+    gOverrides[ds] = { type:'reduced', wellness:true, session:{ type:'rest', label:'Rest Day', duration:0 }, reason:'Readiness check-in: 1/5 — full recovery today' };
+  } else {
+    const reduced = Math.max(MIN_SESSION_MIN, Math.round(base.duration * EASY_REDUCTION_FACTOR));
+    gOverrides[ds] = { type:'reduced', wellness:true, session:{ ...base, duration:reduced, label:'Easy ' + base.label }, reason:'Readiness check-in: 2/5 — session eased' };
+  }
+}
+
+const WELLNESS_LABELS = { 1:'Wiped', 2:'Tired', 3:'OK', 4:'Good', 5:'Fresh' };
+
+function renderWellness() {
+  const el = document.getElementById('wellness-strip');
+  if (!el) return;
+  if (today < TRAIN_START || today >= RACE_DATE) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  const score = todayWellness();
+  if (score) {
+    el.innerHTML = `
+      <span class="wellness-q">Readiness today: <strong>${score}/5 · ${WELLNESS_LABELS[score]}</strong>${score <= 2 ? ' — today’s session adjusted' : ''}</span>
+      <button class="wellness-change" id="wellness-change-btn" type="button">Change</button>`;
+    document.getElementById('wellness-change-btn').addEventListener('click', () => {
+      saveWellness(trnDateStr(today), null);
+      onWellnessChanged();
+    });
+  } else {
+    el.innerHTML = `
+      <span class="wellness-q">How ready do you feel today?</span>
+      <span class="wellness-btns">${[1,2,3,4,5].map(n =>
+        `<button class="wellness-btn" type="button" data-wellness="${n}" aria-label="${n} out of 5 — ${WELLNESS_LABELS[n]}">${n}</button>`).join('')}</span>`;
+    el.querySelectorAll('[data-wellness]').forEach(btn => btn.addEventListener('click', () => {
+      saveWellness(trnDateStr(today), parseInt(btn.dataset.wellness, 10));
+      onWellnessChanged();
+    }));
+  }
+}
+
+function onWellnessChanged() {
+  applyWellnessAdaptation();
+  renderWellness();
+  renderHero();
+  renderCalendar();
+}
+
+// Last 7 days of check-ins for the AI coach prompt.
+function wellnessLines() {
+  const all = loadWellness();
+  const out = [];
+  for (let i = 6; i >= 0; i--) {
+    const ds = trnDateStr(addDays(today, -i));
+    if (all[ds]) out.push(`${ds}: ${all[ds]}/5 (${WELLNESS_LABELS[all[ds]]})`);
+  }
+  if (!out.length) return '';
+  return `-- ATHLETE READINESS CHECK-INS (self-reported, 1=wiped 5=fresh) --\n${out.join('\n')}`;
 }
 
 // ════════════════════════════════════════════
@@ -2015,9 +2165,10 @@ function athleteZoneLines() {
   const out = [`-- ATHLETE ZONES (calibrated from ${src.join(' + ')}) --`];
   if (z.vo2max) out.push(`VO₂ max: ${z.vo2max} ml/kg/min`);
   if (z.maxHR)  out.push(`Max HR ${z.maxHR} bpm → Zone 2 easy ≈ ${Math.round(z.maxHR*0.60)}–${Math.round(z.maxHR*0.70)} bpm, threshold (Zone 4) ≈ ${Math.round(z.maxHR*0.80)}–${Math.round(z.maxHR*0.90)} bpm`);
-  if (z.run)  out.push(`Run paces min/km${z.runFromVo2max ? ' (VO₂-max estimate)' : ''}: easy ${z.run.easy}, moderate ${z.run.moderate || '—'}, tempo ${z.run.tempo || '—'}, race ${z.run.race}`);
-  if (z.bike) out.push(`Bike: easy ${z.bike.easy}, tempo ${z.bike.tempo || '—'}, race ${z.bike.race}`);
-  if (z.swim) out.push(`Swim /100m: easy ${z.swim.easy}, race ${z.swim.race}`);
+  if (z.run)  out.push(`Run paces min/km${z.runFromVo2max ? ' (VO₂-max estimate)' : ''}: easy ${z.run.easy || '—'}, moderate ${z.run.moderate || '—'}, tempo ${z.run.tempo || '—'}, race ${z.run.race || '—'}`);
+  if (z.bike) out.push(`Bike: easy ${z.bike.easy || '—'}, tempo ${z.bike.tempo || '—'}, race ${z.bike.race || '—'}`);
+  if (z.swim) out.push(`Swim /100m: easy ${z.swim.easy || '—'}, race ${z.swim.race || '—'}`);
+  if (z.overrides) out.push('(Some bands were set manually by the athlete — treat those as authoritative.)');
   out.push('Keep prescribed paces/efforts consistent with these — never assign targets faster than the athlete has demonstrated.');
   return out.join('\n');
 }
@@ -2107,6 +2258,9 @@ function buildPlanContext() {
 
   const zoneBlock = athleteZoneLines();
   if (zoneBlock) lines.push('\n' + zoneBlock);
+
+  const wellnessBlock = wellnessLines();
+  if (wellnessBlock) lines.push('\n' + wellnessBlock);
 
   const userRequest = getAiRequest();
   if (userRequest) lines.push(`\n-- ATHLETE REQUEST --\n${userRequest}`);
@@ -2476,6 +2630,83 @@ function renderProgress() {
     : '🏁 Race complete';
 }
 
+// ── Post-race review + archive ────────────────────────────────────
+// Once race day has passed, the block is a finished thing: summarize what was planned
+// vs what actually happened, then let the athlete archive it and start the next one.
+const ARCHIVE_KEY = 'jm_plan_archive_v1';
+
+function computeBlockReview() {
+  let plannedSessions = 0, plannedMin = 0;
+  for (let d = new Date(TRAIN_START); d <= RACE_DATE; d = addDays(d, 1)) {
+    const a = getBaseActivity(d);
+    if (a && a.type !== 'rest') { plannedSessions++; plannedMin += a.duration || 0; }
+  }
+  const review = { plannedSessions, plannedHours: Math.round(plannedMin / 60) };
+
+  if (gActivities?.length) {
+    const inBlock = gActivities.filter(a => {
+      const ds = trnDateStr(new Date(a.start_date));
+      return ds >= trnDateStr(TRAIN_START) && ds <= trnDateStr(RACE_DATE);
+    });
+    review.completedSessions = inBlock.length;
+    review.completedHours = Math.round(inBlock.reduce((s, a) => s + (a.moving_time || 0), 0) / 3600);
+    const actDates = new Set(inBlock.map(a => trnDateStr(new Date(a.start_date))));
+    let hit = 0, plannedDays = 0;
+    for (let d = new Date(TRAIN_START); d <= RACE_DATE; d = addDays(d, 1)) {
+      const a = getBaseActivity(d);
+      if (a && a.type !== 'rest') { plannedDays++; if (actDates.has(trnDateStr(d))) hit++; }
+    }
+    review.adherencePct = plannedDays ? Math.round(hit / plannedDays * 100) : null;
+    // Race result: the longest activity recorded on race day.
+    const raceActs = inBlock.filter(a => trnDateStr(new Date(a.start_date)) === trnDateStr(RACE_DATE));
+    if (raceActs.length) {
+      const longest = raceActs.reduce((m, a) => (a.elapsed_time > m.elapsed_time ? a : m));
+      review.raceTimeSec = longest.elapsed_time;
+    }
+  }
+  return review;
+}
+
+function postRaceReviewHtml() {
+  const r = computeBlockReview();
+  const stat = (lbl, val) => val == null ? '' :
+    `<div class="ad-stat"><span class="ad-lbl">${lbl}</span><span class="ad-val">${val}</span></div>`;
+  const raceTime = r.raceTimeSec ? fmtRaceTime(r.raceTimeSec) : null;
+  const goal     = RACE_DURATION > 0 ? fmtRaceTime(RACE_DURATION * 60) : null;
+  return `<div class="active-card" style="border:2px solid var(--orange);">
+    <div style="flex:1;">
+      <div class="active-eyebrow">Block complete</div>
+      <div class="active-badge" style="color:var(--orange-strong);background:var(--orange-dim);">RACE DONE</div>
+      <div class="active-session">${esc(RACE_NAME)} · ${fmtTrnDate(RACE_DATE, {month:'long',day:'numeric',year:'numeric'})}</div>
+      <div class="active-details">
+        ${stat('Planned', `${r.plannedSessions} sessions · ~${r.plannedHours}h`)}
+        ${r.completedSessions != null ? stat('Completed', `${r.completedSessions} activities · ~${r.completedHours}h`) : ''}
+        ${r.adherencePct != null ? stat('Adherence', `${r.adherencePct}%`) : ''}
+        ${raceTime ? stat('Race time', raceTime + (goal ? ` <span class="ad-unit">goal ${goal}</span>` : '')) : ''}
+      </div>
+      <button class="builder-btn builder-btn-primary" id="archive-plan-btn" type="button" style="margin-top:1rem;">Archive this block &amp; plan the next race →</button>
+    </div>
+  </div>`;
+}
+
+async function archivePlanAndStartNext() {
+  const btn = document.getElementById('archive-plan-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Archiving…'; }
+  try {
+    const archives = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || '[]');
+    archives.push({ archivedAt: trnDateStr(today), review: computeBlockReview(), plan: RAW_PLAN });
+    localStorage.setItem(ARCHIVE_KEY, JSON.stringify(archives));
+  } catch { /* archive is best-effort; never block moving on */ }
+  // Clear the synced copy first so another device doesn't resurrect the old plan.
+  const session = getSession();
+  if (session) {
+    try { await fetch(WORKER_URL + '/plan', { method:'DELETE', headers:{ 'Authorization':'Bearer ' + session.token } }); } catch {}
+  }
+  localStorage.removeItem(PLAN_KEY);
+  localStorage.removeItem(AI_OPT_KEY);
+  window.location.reload(); // boot sees no plan → plan creation flow
+}
+
 function renderHero() {
   const el   = document.getElementById('hero');
   const wrap = document.getElementById('hero-wrap');
@@ -2515,6 +2746,13 @@ function renderHero() {
   }
 
   wrap?.classList.remove('pretrain-mode');
+
+  // The day after race day the block is over: show the review, not an empty week.
+  if (today > RACE_DATE) {
+    el.innerHTML = postRaceReviewHtml();
+    document.getElementById('archive-plan-btn')?.addEventListener('click', archivePlanAndStartNext);
+    return;
+  }
 
   if (trnDateStr(today) === trnDateStr(RACE_DATE)) {
     const rd = RACE_DISTANCES || {};
@@ -2768,11 +3006,13 @@ function runPacesFromVo2max(vo2) {
   const vVO2 = (-b + Math.sqrt(b*b - 4*a*c)) / (2*a); // m/min
   const pace = v => { const s = Math.round(60000 / v); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
   const band = (lo, hi) => `${pace(vVO2*hi)} – ${pace(vVO2*lo)}`; // "fast – slow" min/km
+  // Narrow targets around each zone's midpoint rather than the full physiological
+  // band — a 60 s/km "easy zone" isn't an actionable pace prescription.
   return {
-    easy:     band(0.62, 0.74),
-    moderate: band(0.74, 0.83),
-    tempo:    band(0.84, 0.90),
-    race:     band(0.88, 0.96),
+    easy:     band(0.67, 0.71),
+    moderate: band(0.77, 0.81),
+    tempo:    band(0.85, 0.89),
+    race:     band(0.90, 0.94),
   };
 }
 
@@ -2794,7 +3034,6 @@ function deriveAthleteZones() {
     const swimPaceRange = (lo, hi) => `${spdToPace(100,  hi)} – ${spdToPace(100,  lo)}`;
     const kphRange      = (lo, hi) => `${(lo*3.6).toFixed(0)}–${(hi*3.6).toFixed(0)} km/h`;
 
-    const pct = (arr, p) => arr[Math.max(0, Math.min(arr.length-1, Math.floor(arr.length * p)))];
     const spd = a => a.average_speed;
     const sportActivities = (types, minTime) =>
       gActivities
@@ -2802,56 +3041,93 @@ function deriveAthleteZones() {
                      a.moving_time > minTime && new Date(a.start_date) >= cutoff)
         .sort((a, b) => a.average_speed - b.average_speed);
 
-    // Max HR first — needed to calibrate the easy band to real Zone 2 efforts.
+    // ── Anchor weighting ─────────────────────────────────────────
+    // Recency weight: e-folding over 30 days, so a run from this week counts ~3×
+    // one from two months ago. Fitness drifts; last month's paces describe it best.
+    const now = Date.now();
+    const recW = a => Math.exp((new Date(a.start_date).getTime() - now) / (30 * 86400e3));
+    // Recency-weighted percentile of a speed-sorted list: recent activities pull
+    // the anchor toward current form instead of every activity counting equally.
+    const wPct = (arr, p) => {
+      const total = arr.reduce((s, a) => s + recW(a), 0);
+      let cum = 0;
+      for (const a of arr) { cum += recW(a); if (cum >= p * total) return spd(a); }
+      return spd(arr[arr.length - 1]);
+    };
+    // Recency-weighted mean speed of a set of activities.
+    const wMean = arr => {
+      let s = 0, w = 0;
+      for (const a of arr) { const wt = recW(a); s += spd(a) * wt; w += wt; }
+      return w ? s / w : null;
+    };
+
+    // Max HR — needed to classify efforts into HR zones below.
     const maxHRs = gActivities
       .filter(a => a.max_heartrate > 100 && a.max_heartrate < 220)
       .map(a => a.max_heartrate);
     const mhr = maxHRs.length ? Math.max(...maxHRs) : null;
     zones.maxHR = mhr;
 
-    // Run zones — use activities ≥10 min with speed data
+    // Anchor for one intensity band: prefer the recency-weighted mean speed of
+    // activities actually performed in that HR zone (real physiological effort),
+    // fall back to a recency-weighted speed percentile when HR data is thin.
+    const anchor = (acts, hrLo, hrHi, p) => {
+      if (mhr) {
+        const inZone = acts.filter(a => a.average_heartrate > 0 &&
+                                        a.average_heartrate >= mhr * hrLo &&
+                                        a.average_heartrate <  mhr * hrHi);
+        if (inZone.length >= 2) return wMean(inZone);
+      }
+      return wPct(acts, p);
+    };
+
+    // Run zones — use activities ≥10 min with speed data.
+    // Bands stay tight enough to act on (~15–20 s/km easy, ~10 s/km race);
+    // precision increases with intensity.
     const runs = sportActivities(['Run','VirtualRun'], 600);
     if (runs.length >= 3) {
-      const e = pct(runs, 0.25), m = pct(runs, 0.55), t = pct(runs, 0.80), r = pct(runs, 0.93);
+      const e = anchor(runs, 0.60, 0.72, 0.25);
+      const m = anchor(runs, 0.72, 0.80, 0.55);
+      const t = anchor(runs, 0.80, 0.88, 0.80);
+      const r = anchor(runs, 0.88, 1.01, 0.93);
       zones.run = {
-        easy:     runPaceRange(spd(e)*0.96, spd(e)*1.08),
-        moderate: runPaceRange(spd(m)*0.97, spd(m)*1.05),
-        tempo:    runPaceRange(spd(t)*0.97, spd(t)*1.04),
-        race:     runPaceRange(spd(r)*0.97, spd(r)*1.03),
+        easy:     runPaceRange(e*0.98,  e*1.04),
+        moderate: runPaceRange(m*0.98,  m*1.03),
+        tempo:    runPaceRange(t*0.985, t*1.025),
+        race:     runPaceRange(r*0.985, r*1.015),
       };
-      // HR-calibrate the easy band: anchor it to runs actually performed in Zone 2
-      // (60–72% of max HR), so "easy" reflects the athlete's real aerobic response
-      // rather than just their slowest quartile of runs.
-      if (mhr) {
-        const z2 = runs.filter(a => a.average_heartrate > 0 &&
-                                    a.average_heartrate >= mhr*0.60 &&
-                                    a.average_heartrate <= mhr*0.72)
-                       .map(spd).sort((x, y) => x - y);
-        if (z2.length >= 2) zones.run.easy = runPaceRange(z2[0]*0.99, z2[z2.length-1]*1.01);
-      }
+      zones.raceSpd = { ...(zones.raceSpd || {}), run: r }; // numeric m/s for race-time prediction
     }
 
-    // Swim zones
+    // Swim zones — HR is rarely recorded in the pool, so anchors are effectively
+    // recency-weighted percentiles (the HR path still applies when data exists).
     const swims = sportActivities('Swim', 300);
     if (swims.length >= 2) {
-      const e = pct(swims, 0.20), m = pct(swims, 0.55), r = pct(swims, 0.88);
+      const e = anchor(swims, 0.60, 0.72, 0.20);
+      const m = anchor(swims, 0.72, 0.82, 0.55);
+      const r = anchor(swims, 0.82, 1.01, 0.88);
       zones.swim = {
-        easy:     swimPaceRange(spd(e)*0.96, spd(e)*1.10),
-        moderate: swimPaceRange(spd(m)*0.97, spd(m)*1.05),
-        race:     swimPaceRange(spd(r)*0.97, spd(r)*1.03),
+        easy:     swimPaceRange(e*0.97,  e*1.05),
+        moderate: swimPaceRange(m*0.98,  m*1.03),
+        race:     swimPaceRange(r*0.985, r*1.02),
       };
+      zones.raceSpd = { ...(zones.raceSpd || {}), swim: r };
     }
 
     // Bike zones
     const bikes = sportActivities(['Ride','VirtualRide'], 1200);
     if (bikes.length >= 2) {
-      const e = pct(bikes, 0.20), m = pct(bikes, 0.50), t = pct(bikes, 0.78), r = pct(bikes, 0.92);
+      const e = anchor(bikes, 0.60, 0.72, 0.20);
+      const m = anchor(bikes, 0.72, 0.80, 0.50);
+      const t = anchor(bikes, 0.80, 0.88, 0.78);
+      const r = anchor(bikes, 0.88, 1.01, 0.92);
       zones.bike = {
-        easy:     kphRange(spd(e)*0.93, spd(e)*1.08),
-        moderate: kphRange(spd(m)*0.96, spd(m)*1.06),
-        tempo:    kphRange(spd(t)*0.97, spd(t)*1.05),
-        race:     kphRange(spd(r)*0.97, spd(r)*1.04),
+        easy:     kphRange(e*0.96, e*1.05),
+        moderate: kphRange(m*0.97, m*1.04),
+        tempo:    kphRange(t*0.98, t*1.03),
+        race:     kphRange(r*0.98, r*1.03),
       };
+      zones.raceSpd = { ...(zones.raceSpd || {}), bike: r };
     }
   }
 
@@ -2861,9 +3137,171 @@ function deriveAthleteZones() {
   if (!zones.run && vo2max) {
     zones.run = runPacesFromVo2max(vo2max);
     zones.runFromVo2max = true;
+    // vVO₂max back out of the same cost-of-running curve; race effort ≈ 92% of it.
+    const a = 0.000104, b = 0.182258, c = -(4.60 + vo2max);
+    const vVO2 = (-b + Math.sqrt(b*b - 4*a*c)) / (2*a); // m/min
+    zones.raceSpd = { ...(zones.raceSpd || {}), run: vVO2 * 0.92 / 60 };
+  }
+
+  // Manual overrides (set in the Training Zones panel) win over everything derived —
+  // the athlete knows their zones better than any estimate.
+  const ov = loadZoneOverrides();
+  if (ov) {
+    if (ov.maxHR) zones.maxHR = ov.maxHR;
+    for (const sport of ['run', 'swim', 'bike']) {
+      if (!ov[sport]) continue;
+      const bands = Object.entries(ov[sport]).filter(([, v]) => v);
+      if (!bands.length) continue;
+      zones[sport] = zones[sport] || {};
+      for (const [band, val] of bands) zones[sport][band] = val;
+    }
+    zones.overrides = ov;
   }
 
   return Object.keys(zones).length ? zones : null;
+}
+
+// ── Manual zone overrides ─────────────────────────────────────────
+const ZONES_OVERRIDE_KEY = 'jm_zones_override_v1';
+function loadZoneOverrides() {
+  try { return JSON.parse(localStorage.getItem(ZONES_OVERRIDE_KEY)); } catch { return null; }
+}
+function saveZoneOverrides(ov) {
+  if (ov && Object.keys(ov).length) localStorage.setItem(ZONES_OVERRIDE_KEY, JSON.stringify(ov));
+  else localStorage.removeItem(ZONES_OVERRIDE_KEY);
+}
+
+// ── Training Zones panel ──────────────────────────────────────────
+// Shows the derived zones so the athlete can see (and correct) the numbers behind
+// their session targets and the AI coach's advice. An edited band is an override —
+// highlighted, persisted, and authoritative until cleared.
+const ZONE_BANDS = { run:['easy','moderate','tempo','race'], bike:['easy','moderate','tempo','race'], swim:['easy','moderate','race'] };
+const ZONE_UNITS = { run:'min/km', bike:'km/h', swim:'/100m' };
+
+function renderZonesPanel() {
+  const section = document.getElementById('zones-section');
+  if (!section) return;
+  const z = gAthleteZones;
+  if (!z) { section.classList.add('hidden'); return; }
+  section.classList.remove('hidden');
+
+  const ov = loadZoneOverrides() || {};
+  document.getElementById('zones-sub').textContent =
+    (z.runFromVo2max ? 'Run paces estimated from your VO₂ max; ' : 'Derived from your last 90 days of activity; ') +
+    'these drive your session targets and the AI coach. Edit any band to override it — orange means manually set.';
+
+  const sportBlock = sport => {
+    if (!z[sport]) return '';
+    const st = sportStyle(sport);
+    const rows = ZONE_BANDS[sport].map(band => {
+      const isOv = !!(ov[sport] && ov[sport][band]);
+      return `
+        <div class="zones-row">
+          <span class="zones-band-label">${band[0].toUpperCase() + band.slice(1)}</span>
+          <input class="zones-input${isOv ? ' overridden' : ''}" type="text" maxlength="30" placeholder="—"
+                 data-zone-sport="${sport}" data-zone-band="${band}" value="${esc(z[sport][band] || '')}"
+                 aria-label="${st.label} ${band} zone">
+          <span class="zones-unit">${ZONE_UNITS[sport]}</span>
+        </div>`;
+    }).join('');
+    return `<div><div class="zones-sport-title"><span class="nw-zone-pip" style="background:${st.color}"></span>${st.label}</div>${rows}</div>`;
+  };
+  const hrBlock = `
+    <div><div class="zones-sport-title">Heart rate</div>
+      <div class="zones-row">
+        <span class="zones-band-label">Max HR</span>
+        <input class="zones-input${ov.maxHR ? ' overridden' : ''}" type="number" min="120" max="220" placeholder="—"
+               data-zone-maxhr value="${z.maxHR || ''}" aria-label="Max heart rate">
+        <span class="zones-unit">bpm</span>
+      </div>
+    </div>`;
+
+  document.getElementById('zones-body').innerHTML = sportBlock('run') + sportBlock('bike') + sportBlock('swim') + hrBlock;
+  document.getElementById('zones-body').querySelectorAll('input').forEach(inp => inp.addEventListener('change', onZoneEdit));
+}
+
+function onZoneEdit(e) {
+  const inp = e.currentTarget;
+  const ov  = loadZoneOverrides() || {};
+  if (inp.hasAttribute('data-zone-maxhr')) {
+    const n = parseInt(inp.value, 10);
+    if (Number.isFinite(n) && n >= 120 && n <= 220) ov.maxHR = n;
+    else delete ov.maxHR;
+  } else {
+    const sport = inp.dataset.zoneSport, band = inp.dataset.zoneBand;
+    const val = inp.value.trim().slice(0, 30);
+    ov[sport] = ov[sport] || {};
+    if (val) ov[sport][band] = val;
+    else delete ov[sport][band];
+    if (!Object.keys(ov[sport]).length) delete ov[sport];
+  }
+  saveZoneOverrides(ov);
+  gAthleteZones = deriveAthleteZones(); // clearing an override falls back to derived
+  renderZonesPanel();
+  renderRacePrediction();
+}
+
+document.getElementById('zones-reset-btn').addEventListener('click', () => {
+  saveZoneOverrides(null);
+  gAthleteZones = deriveAthleteZones();
+  renderZonesPanel();
+  renderRacePrediction();
+  toast('Zones reset to derived values.');
+});
+
+// ── Race-time prediction ──────────────────────────────────────────
+// A quiet "tracking toward" estimate from demonstrated race-effort speeds — the
+// same anchors the zones use — against the athlete's goal time. No fanfare: one
+// line under the progress bar that firms up as fitness data accumulates.
+
+function parseDistKm(s) {
+  const m = String(s || '').match(/([\d.]+)\s*(km|k|mi|m)?/i);
+  if (!m) return null;
+  let v = parseFloat(m[1]);
+  const u = (m[2] || 'km').toLowerCase();
+  if (u === 'm') v /= 1000;
+  else if (u === 'mi') v *= 1.60934;
+  return v > 0 ? v : null;
+}
+
+// Returns predicted total seconds, or null when a needed leg speed is unknown.
+function estimateRaceTime() {
+  const spd = gAthleteZones?.raceSpd;
+  if (!spd) return null;
+  const rd = RACE_DISTANCES || {};
+  const legs = [];
+  const swimKm = parseDistKm(rd.swim), bikeKm = parseDistKm(rd.bike), runKm = parseDistKm(rd.run);
+  if (swimKm) { if (!spd.swim) return null; legs.push(swimKm * 1000 / spd.swim); }
+  if (bikeKm) { if (!spd.bike) return null; legs.push(bikeKm * 1000 / spd.bike); }
+  if (runKm) {
+    if (!spd.run) return null;
+    let t = runKm * 1000 / spd.run;
+    // Riegel-style endurance fade: race-effort anchors reflect shorter efforts, so
+    // longer runs slow slightly (~6% per doubling past 10 km).
+    if (runKm > 10) t *= Math.pow(runKm / 10, 0.06);
+    legs.push(t);
+  }
+  if (!legs.length) return null;
+  let total = legs.reduce((a, b) => a + b, 0);
+  if (legs.length >= 2) total += 300; // transitions
+  return total;
+}
+
+function fmtRaceTime(sec) {
+  const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}` : `${m} min`;
+}
+
+function renderRacePrediction() {
+  const el = document.getElementById('prog-predict');
+  if (!el) return;
+  const est = estimateRaceTime();
+  if (!est || today >= RACE_DATE) { el.classList.add('hidden'); return; }
+  const goal = RACE_DURATION > 0 ? RACE_DURATION * 60 : null;
+  let line = `At current fitness you're tracking toward <strong>~${fmtRaceTime(est)}</strong>`;
+  if (goal) line += ` · goal ${fmtRaceTime(goal)}`;
+  el.innerHTML = line;
+  el.classList.remove('hidden');
 }
 const gDetailCache = {};
 
@@ -3898,6 +4336,8 @@ function renderRecentActivities(expanded) {
 function stravaRender(athlete, stats, activities, cfg) {
   gAthlete = athlete; gStats = stats; gActivities = activities; gCfg = cfg || null;
   gAthleteZones = deriveAthleteZones();
+  renderZonesPanel();
+  renderRacePrediction();
   document.getElementById('footer-year').textContent = new Date().getFullYear();
   // All-time run stats → topnav
   const atRun = stats.all_run_totals || {};
@@ -4380,19 +4820,6 @@ function raceEventCardHtml(e, i) {
 
 function renderPlanBuilderSimple() {
   const p = DRAFT_PLAN;
-  const phaseRows = p.phases.map((ph, i) => `
-    <div class="bldr-simple-row">
-      <span class="bldr-simple-dot" style="background:${esc(ph.color)};"></span>
-      <span class="bldr-simple-name">${esc(ph.name)}</span>
-      <span class="bldr-simple-meta">${ph.weeks} wk${ph.weeks !== 1 ? 's' : ''}</span>
-      <button class="bldr-simple-rm" type="button" data-action="phase-remove" data-phase-idx="${i}" ${p.phases.length <= 1 ? 'disabled' : ''} aria-label="Remove phase">×</button>
-    </div>`).join('');
-  const eventRows = p.raceEvents.length ? p.raceEvents.map((e, i) => `
-    <div class="bldr-simple-row">
-      <span class="bldr-simple-name">${e.label ? esc(e.label) : '<em>Untitled</em>'}</span>
-      <span class="bldr-simple-meta">${esc(e.date)}</span>
-      <button class="bldr-simple-rm" type="button" data-action="event-remove" data-event-idx="${i}" aria-label="Remove event">×</button>
-    </div>`).join('') : '<div class="bldr-simple-row"><span class="bldr-simple-meta bldr-simple-meta--empty">No tune-up races</span></div>';
   document.getElementById('builder-body').innerHTML = `
     <div class="builder-card bldr-ai-edit-card">
       <div class="builder-card-title">✦ Edit with AI coach</div>
@@ -4402,18 +4829,16 @@ function renderPlanBuilderSimple() {
     <div class="builder-grid" style="margin-bottom:1.25rem">
       <div class="form-group"><label class="form-label">Race name</label>
         <input class="form-input" type="text" data-field="raceName" value="${esc(p.raceName)}"></div>
-      <div class="form-group"><label class="form-label">Race date</label>
-        <input class="form-input" type="date" data-field="raceDate" value="${esc(p.raceDate)}"></div>
       <div class="form-group"><label class="form-label">Training start</label>
         <input class="form-input" type="date" data-field="trainStart" value="${esc(p.trainStart)}"></div>
+      <div class="form-group"><label class="form-label">Race date</label>
+        <input class="form-input" type="date" data-field="raceDate" value="${esc(p.raceDate)}"></div>
     </div>
-    <div class="builder-section-title">Training Phases</div>
-    <div class="bldr-simple-list">${phaseRows}</div>
-    <button class="builder-add-btn" id="add-phase-btn" type="button">+ Add Phase</button>
     <div class="builder-section-title">Tune-up Races</div>
-    <div class="bldr-simple-list">${eventRows}</div>
+    <p class="builder-section-sub">Optional tune-up races during training (e.g. a sprint or olympic-distance event). Each can override its week's schedule.</p>
+    ${p.raceEvents.map((e, i) => raceEventCardHtml(e, i)).join('')}
     <button class="builder-add-btn" id="add-event-btn" type="button">+ Add Race Event</button>
-    <button class="builder-add-btn builder-cta-btn" id="bldr-advanced-btn" type="button">Advanced edit →</button>
+    <button class="builder-add-btn builder-cta-btn" id="bldr-advanced-btn" type="button">Advanced edit — phases, weekly schedules, race distances →</button>
   `;
   attachBuilderListeners(renderPlanBuilderSimple);
   document.getElementById('bldr-advanced-btn').addEventListener('click', renderPlanBuilder);
@@ -4503,7 +4928,8 @@ function attachBuilderListeners(rerenderFn) {
     });
   });
 
-  body.querySelector('#add-phase-btn').addEventListener('click', () => {
+  // The simple view has no phase editing (advanced only), so the button may be absent.
+  body.querySelector('#add-phase-btn')?.addEventListener('click', () => {
     DRAFT_PLAN.phases.push(emptyPhase());
     rerenderFn();
   });
@@ -5689,6 +6115,7 @@ async function generateAiPlan() {
   // (workout details, daily coach) reflect it immediately — even with no Strava data.
   saveVo2max(document.getElementById('aiq-vo2max').value);
   gAthleteZones = deriveAthleteZones();
+  renderZonesPanel();
 
   const { context, totalWeeks } = buildAiQuestionnaireContext();
   const systemPrompt = AI_PLAN_SYSTEM_PROMPT.replace('{totalWeeks}', totalWeeks);
@@ -5814,6 +6241,10 @@ document.getElementById('builder-save').addEventListener('click', () => {
 renderNav();
 renderRaceHeader();
 renderProgress();
+// Wellness applies before the first paint so a low check-in shows adjusted sessions
+// even without Strava; adaptPlan() re-applies it after activity data loads.
+applyWellnessAdaptation();
+renderWellness();
 renderHero();
 renderTimeline();
 renderWeekStrip();
@@ -6011,6 +6442,10 @@ function renderAccountDropdown() {
         <button class="account-dropdown-action" id="resend-verify-btn" type="button">Resend confirmation email</button>
       </div>
       <div class="account-dropdown-divider"></div>
+      <button class="account-dropdown-action" id="calendar-feed-btn" type="button">Subscribe in your calendar…</button>
+      <button class="account-dropdown-action" id="reminders-btn" type="button">Daily workout email: …</button>
+      <button class="account-dropdown-action" id="change-password-btn" type="button">Change password…</button>
+      <div class="account-dropdown-divider"></div>
       <button class="account-dropdown-action" id="logout-btn" type="button">Log out</button>
       <button class="account-dropdown-action danger" id="delete-account-btn" type="button">Delete account</button>
     `;
@@ -6021,6 +6456,18 @@ function renderAccountDropdown() {
     document.getElementById('delete-account-btn').addEventListener('click', (e) => {
       e.stopPropagation();
       renderDeleteAccountConfirm(session);
+    });
+    document.getElementById('calendar-feed-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      renderCalendarFeedPanel(session);
+    });
+    document.getElementById('change-password-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      renderChangePasswordForm(session);
+    });
+    document.getElementById('reminders-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleReminders(session, e.currentTarget);
     });
     document.getElementById('disconnect-strava-btn')?.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -6033,6 +6480,11 @@ function renderAccountDropdown() {
         if (metaEl && data?.createdAt) {
           const d = new Date(data.createdAt);
           metaEl.textContent = `Member since ${d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}`;
+        }
+        if (data) {
+          gAccountInfo = data; // cached for the reminders toggle + calendar panel
+          const remBtn = document.getElementById('reminders-btn');
+          if (remBtn) remBtn.textContent = `Daily workout email: ${data.reminders ? 'On' : 'Off'}`;
         }
         if (data && data.verified === false) {
           document.getElementById('account-verify-row')?.classList.remove('hidden');
@@ -6068,6 +6520,144 @@ function renderAccountDropdown() {
       if (confirm('Disconnect Strava and clear saved tokens?')) { clearCfg(); window.location.replace(window.location.pathname); }
     });
   }
+}
+
+let gAccountInfo = null; // last /account response (reminders state, calendar feed URL)
+
+// ── Calendar feed panel ──────────────────────────────────────────
+// Shows the per-user webcal subscription URL. The feed is generated server-side from
+// the synced schedule, so a subscribed calendar keeps tracking the plan as it adapts.
+function renderCalendarFeedPanel(session) {
+  const dropdown = document.getElementById('account-dropdown');
+  dropdown.innerHTML = `
+    <div class="account-dropdown-label">Calendar subscription</div>
+    <div class="account-dropdown-confirm">Subscribe to your plan in Apple Calendar, Google Calendar, or Outlook. The feed updates automatically as your plan adapts — no re-downloading.</div>
+    <div class="account-dropdown-error hidden" id="cal-feed-error"></div>
+    <input class="account-dropdown-pw" id="cal-feed-url" type="text" readonly value="Generating link…" aria-label="Calendar feed URL">
+    <div class="account-dropdown-confirm-row">
+      <button class="account-dropdown-action" id="cal-feed-back" type="button">Back</button>
+      <button class="account-dropdown-action" id="cal-feed-copy" type="button" disabled>Copy link</button>
+    </div>
+    <button class="account-dropdown-action danger" id="cal-feed-revoke" type="button" style="margin-top:.4rem;">Disable this feed</button>
+  `;
+  dropdown.querySelectorAll('input,button').forEach(el => el.addEventListener('click', e => e.stopPropagation()));
+  document.getElementById('cal-feed-back').addEventListener('click', () => renderAccountDropdown());
+
+  const urlEl  = document.getElementById('cal-feed-url');
+  const copyBtn = document.getElementById('cal-feed-copy');
+  const errEl  = document.getElementById('cal-feed-error');
+
+  fetch(WORKER_URL + '/calendar/token', { method: 'POST', headers: { 'Authorization': 'Bearer ' + session.token } })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+      if (!ok) throw new Error(data.error || 'failed');
+      urlEl.value = data.url;
+      copyBtn.disabled = false;
+      // Push the current schedule so a fresh feed isn't empty until the next save.
+      pushPlanToServer?.();
+    })
+    .catch(() => {
+      urlEl.value = '';
+      errEl.textContent = 'Could not create the feed link. Try again.';
+      errEl.classList.remove('hidden');
+    });
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(urlEl.value);
+      copyBtn.textContent = 'Copied';
+    } catch {
+      urlEl.select();
+      document.execCommand('copy');
+      copyBtn.textContent = 'Copied';
+    }
+    setTimeout(() => { copyBtn.textContent = 'Copy link'; }, 2500);
+  });
+
+  document.getElementById('cal-feed-revoke').addEventListener('click', async () => {
+    try {
+      await fetch(WORKER_URL + '/calendar/token', { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + session.token } });
+      toast('Calendar feed disabled — subscribed calendars will stop updating.');
+      renderAccountDropdown();
+    } catch {
+      errEl.textContent = 'Could not disable the feed. Try again.';
+      errEl.classList.remove('hidden');
+    }
+  });
+}
+
+// ── Daily reminder email toggle ──────────────────────────────────
+async function toggleReminders(session, btn) {
+  const next = !(gAccountInfo?.reminders);
+  btn.disabled = true;
+  try {
+    const res = await fetch(WORKER_URL + '/account/reminders', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.token },
+      body:    JSON.stringify({ enabled: next, tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'failed');
+    if (gAccountInfo) gAccountInfo.reminders = data.reminders;
+    btn.textContent = `Daily workout email: ${data.reminders ? 'On' : 'Off'}`;
+    if (data.reminders) {
+      toast('You’ll get an email each morning there’s a session on the plan.');
+      pushPlanToServer?.(); // make sure the server has today's schedule
+    }
+  } catch {
+    toast('Could not update the email setting. Try again.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Change password ──────────────────────────────────────────────
+function renderChangePasswordForm(session) {
+  const dropdown = document.getElementById('account-dropdown');
+  dropdown.innerHTML = `
+    <div class="account-dropdown-label">Change password</div>
+    <div class="account-dropdown-error hidden" id="chpw-error"></div>
+    <input class="account-dropdown-pw" id="chpw-current" type="password" autocomplete="current-password" placeholder="Current password">
+    <input class="account-dropdown-pw" id="chpw-new" type="password" autocomplete="new-password" placeholder="New password (8+ characters)">
+    <div class="account-dropdown-confirm-row">
+      <button class="account-dropdown-action" id="chpw-cancel" type="button">Cancel</button>
+      <button class="account-dropdown-action" id="chpw-save" type="button">Change password</button>
+    </div>
+  `;
+  dropdown.querySelectorAll('input,button').forEach(el => el.addEventListener('click', e => e.stopPropagation()));
+  document.getElementById('chpw-cancel').addEventListener('click', () => renderAccountDropdown());
+  document.getElementById('chpw-save').addEventListener('click', async () => {
+    const errEl = document.getElementById('chpw-error');
+    const saveBtn = document.getElementById('chpw-save');
+    errEl.classList.add('hidden');
+    const current = document.getElementById('chpw-current').value;
+    const next    = document.getElementById('chpw-new').value;
+    if (next.length < 8) { errEl.textContent = 'New password must be at least 8 characters.'; errEl.classList.remove('hidden'); return; }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    try {
+      const res  = await fetch(WORKER_URL + '/auth/change-password', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.token },
+        body:    JSON.stringify({ currentPassword: current, newPassword: next }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errEl.textContent = data.error || 'Could not change your password.';
+        errEl.classList.remove('hidden');
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Change password';
+        return;
+      }
+      toast('Password changed.');
+      renderAccountDropdown();
+    } catch {
+      errEl.textContent = 'Could not reach the server. Try again.';
+      errEl.classList.remove('hidden');
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Change password';
+    }
+  });
 }
 
 // Swaps the dropdown into a password-confirm step so a stolen/long-lived session
@@ -6123,6 +6713,10 @@ function renderDeleteAccountConfirm(session) {
 }
 renderAccountUI();
 
+// Zones can exist without Strava (VO₂ max input, manual overrides) — render the
+// panel at boot too; stravaRender() re-renders it when activity data lands.
+if (!gAthleteZones) { gAthleteZones = deriveAthleteZones(); renderZonesPanel(); renderRacePrediction(); }
+
 // Confirm a plan save that triggered a reload (the toast can't survive the reload itself).
 try { if (sessionStorage.getItem('jm_saved_toast')) { sessionStorage.removeItem('jm_saved_toast'); toast('Plan saved.'); } } catch {}
 
@@ -6135,6 +6729,10 @@ Promise.all([pullPlanFromServer(), stravaInit()]).then(() => {
   if (localStorage.getItem(PLAN_KEY) === null) { forceCreatePlan(); return; }
   // Deep link: restore the Plan Builder if the URL points at it (e.g. a bookmark or reload).
   if (location.hash === '#/builder') openPlanBuilder();
+  // Refresh the server-side schedule once adaptations have settled, so a subscribed
+  // calendar feed reflects this load's rule-engine/AI reschedules — not just the last
+  // explicit save. Delayed because the AI pass can land after stravaInit resolves.
+  if (getSession()) setTimeout(() => pushPlanToServer(RAW_PLAN), 4000);
 });
 </script>
 </body>

@@ -30,3 +30,8 @@ database_id = "0fc4630f-5673-4c87-9c65-7a7146984b19"
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
 id = "c502b46837494b3fa0a733a1624f486a"
+
+# Hourly tick for "today's workout" reminder emails — the handler checks each opted-in
+# user's local time and only sends at 6 AM in their own timezone.
+[triggers]
+crons = ["0 * * * *"]
