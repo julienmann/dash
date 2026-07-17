@@ -404,6 +404,11 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit;margin:0;}
 .strava-btn:hover{border-color:var(--fg);}
 .strava-btn svg{width:15px;height:15px;fill:var(--orange);}
 .welcome-foot{font-size:.74rem;color:var(--mid);line-height:1.6;margin-top:1.15rem;padding-top:1.15rem;border-top:1px solid var(--border);}
+.welcome-secondary-connect{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;margin-top:.75rem;}
+.welcome-secondary-label{font-size:.74rem;color:var(--mid);}
+.welcome-secondary-btn{padding:.32rem .6rem;background:transparent;color:var(--mid);font-weight:600;font-size:.74rem;border:1px solid var(--border);border-radius:5px;cursor:pointer;transition:border-color .15s,color .15s;}
+.welcome-secondary-btn:hover:not(:disabled){border-color:var(--fg);color:var(--fg);}
+.welcome-secondary-btn:disabled{opacity:.5;cursor:not-allowed;}
 
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
 
@@ -902,6 +907,11 @@ textarea.aiq-big-input{line-height:1.4;min-height:7.5rem;}
         </button>
       </div>
       <p class="welcome-foot">Connecting Strava is optional. It syncs your activities and adapts upcoming sessions to how you are actually training.</p>
+      <div class="welcome-secondary-connect">
+        <span class="welcome-secondary-label">Also sync from:</span>
+        <button class="welcome-secondary-btn" id="setup-btn-garmin" type="button">Garmin Connect</button>
+        <button class="welcome-secondary-btn" id="setup-btn-polar" type="button">Polar Flow</button>
+      </div>
       <div class="connect-error" id="setup-error" aria-live="polite"></div>
     </div>
   </div>
@@ -2976,14 +2986,33 @@ function renderCalendar() {
 //  STRAVA
 // ════════════════════════════════════════════
 
-// ── Strava App Config ─────────────────────────────────────────────
-// STRAVA_CLIENT_ID — numeric ID shown on strava.com/settings/api (not secret, fine in source)
-// WORKER_URL       — your deployed Cloudflare Worker URL (handles token exchange with the secret)
-const STRAVA_CLIENT_ID = '250989';
-const WORKER_URL       = 'https://strava-auth.jmdashboard.workers.dev';
-const OAUTH_STATE_KEY  = 'jm_oauth_state';
+// ── Connected data-source config ──────────────────────────────────
+// WORKER_URL — your deployed Cloudflare Worker URL (handles OAuth token exchange with each
+// provider's client secret; see strava-worker/index.js for the required secrets per provider).
+// Client ids below are public identifiers (fine in source) — leave one blank until you've
+// registered an app with that provider; its connect button stays disabled ("Coming soon")
+// until then. Garmin also needs `pkce: true` — its OAuth2 flow requires a PKCE challenge.
+const WORKER_URL      = 'https://strava-auth.jmdashboard.workers.dev';
+const OAUTH_STATE_KEY = 'jm_oauth_state';
+const PROVIDERS = {
+  strava: {
+    label: 'Strava', clientId: '250989',
+    authorizeUrl: 'https://www.strava.com/oauth/authorize',
+    scope: 'activity:read_all,read', storageKey: 'jm_strava_v1',
+  },
+  garmin: {
+    label: 'Garmin Connect', clientId: '',
+    authorizeUrl: 'https://connect.garmin.com/oauth2Confirm',
+    scope: '', storageKey: 'jm_garmin_v1', pkce: true,
+  },
+  polar: {
+    label: 'Polar Flow', clientId: '',
+    authorizeUrl: 'https://flow.polar.com/oauth2/authorization',
+    scope: '', storageKey: 'jm_polar_v1',
+  },
+};
 
-const STORAGE_KEY = 'jm_strava_v1';
+const STORAGE_KEY = PROVIDERS.strava.storageKey;
 let gAthlete, gStats, gActivities, gCfg;
 let gSport  = 'run';
 let gPeriod = 'ytd';
@@ -3326,6 +3355,13 @@ function getCfg()   { try { return JSON.parse(localStorage.getItem(STORAGE_KEY))
 function saveCfg(c) { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); }
 function clearCfg() { localStorage.removeItem(STORAGE_KEY); }
 
+// ── Generic per-provider connection storage (Strava keeps the functions above for the
+// rest of the file, unchanged; Garmin/Polar are secondary sources managed through these) ──
+function getProviderCfg(id)   { try { return JSON.parse(localStorage.getItem(PROVIDERS[id].storageKey)); } catch { return null; } }
+function saveProviderCfg(id, c) { localStorage.setItem(PROVIDERS[id].storageKey, JSON.stringify(c)); }
+function clearProviderCfg(id) { localStorage.removeItem(PROVIDERS[id].storageKey); }
+function isProviderConnected(id) { return !!getProviderCfg(id)?.access_token; }
+
 // ── Strava UI states ─────────────────────────────────────────────
 // Reflect the current view in the top nav so the athlete always knows where they are.
 function setActiveNav(name) {
@@ -3384,12 +3420,38 @@ function showStravaContent() {
 // ── OAuth ────────────────────────────────────────────────────────
 function redirectUri() { return window.location.origin + window.location.pathname; }
 
-function startOAuth() {
-  // CSRF protection: stash a random state and require it back on the callback.
+// PKCE (required by Garmin's OAuth2 flow): a random verifier stashed for the callback,
+// and its SHA-256/base64url "challenge" sent up front per RFC 7636.
+function pkceVerifier() {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return base64Url(bytes);
+}
+async function pkceChallenge(verifier) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return base64Url(new Uint8Array(digest));
+}
+function base64Url(bytes) {
+  let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function startOAuth(providerId = 'strava') {
+  const p = PROVIDERS[providerId];
+  if (!p?.clientId) return; // not configured — connect buttons are disabled in this case anyway
+  // CSRF protection: stash a random state (plus provider, plus PKCE verifier for Garmin)
+  // and require the state back on the callback.
   const state = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
-  try { sessionStorage.setItem(OAUTH_STATE_KEY, state); } catch {}
-  const p = new URLSearchParams({ client_id:STRAVA_CLIENT_ID, response_type:'code', redirect_uri:redirectUri(), approval_prompt:'auto', scope:'activity:read_all,read', state });
-  window.location.href = 'https://www.strava.com/oauth/authorize?' + p;
+  const params = { client_id:p.clientId, response_type:'code', redirect_uri:redirectUri(), state };
+  if (p.scope) params.scope = p.scope;
+  if (providerId === 'strava') params.approval_prompt = 'auto';
+  let verifier = null;
+  if (p.pkce) {
+    verifier = pkceVerifier();
+    params.code_challenge = await pkceChallenge(verifier);
+    params.code_challenge_method = 'S256';
+  }
+  try { sessionStorage.setItem(OAUTH_STATE_KEY, JSON.stringify({ provider: providerId, state, verifier })); } catch {}
+  window.location.href = p.authorizeUrl + '?' + new URLSearchParams(params);
 }
 
 async function workerPost(body) {
@@ -3399,12 +3461,12 @@ async function workerPost(body) {
   return data;
 }
 
-async function exchangeCode(code) {
-  return workerPost({ grant_type:'authorization_code', code });
+async function exchangeCode(code, providerId = 'strava', verifier = null) {
+  return workerPost({ provider: providerId, grant_type:'authorization_code', code, code_verifier: verifier, redirect_uri: redirectUri() });
 }
 
-async function refreshToken(refreshTok) {
-  return workerPost({ grant_type:'refresh_token', refresh_token:refreshTok });
+async function refreshToken(refreshTok, providerId = 'strava') {
+  return workerPost({ provider: providerId, grant_type:'refresh_token', refresh_token: refreshTok });
 }
 
 // Serialises concurrent refresh calls across tabs/async paths so only one
@@ -3418,6 +3480,22 @@ async function ensureFreshToken(cfg) {
       .finally(() => { _refreshPromise = null; });
   }
   return _refreshPromise;
+}
+
+// Same idea as ensureFreshToken() above, but generic over any provider — Garmin/Polar
+// don't drive the main page state machine, so they get their own small refresh path.
+let _providerRefreshPromises = {};
+async function ensureFreshProviderToken(providerId) {
+  const cfg = getProviderCfg(providerId);
+  if (!cfg?.access_token) return null;
+  if (Date.now() / 1000 < (cfg.expires_at || 0) - 60) return cfg;
+  if (!_providerRefreshPromises[providerId]) {
+    _providerRefreshPromises[providerId] = refreshToken(cfg.refresh_token, providerId)
+      .then(tokens => { const updated = { ...cfg, ...tokens }; saveProviderCfg(providerId, updated); return updated; })
+      .catch(() => { clearProviderCfg(providerId); return null; })
+      .finally(() => { delete _providerRefreshPromises[providerId]; });
+  }
+  return _providerRefreshPromises[providerId];
 }
 
 async function fetchAllActivities(token) {
@@ -3434,6 +3512,111 @@ async function stravaApi(path, token) {
   const r = await fetch('https://www.strava.com/api/v3' + path, { headers:{ Authorization:'Bearer ' + token } });
   if (!r.ok) throw new Error('Strava API error ' + r.status);
   return r.json();
+}
+
+// ── Secondary providers (Garmin / Polar) ──────────────────────────
+// Strava stays the primary connection that drives the main dashboard state machine
+// (loading/content/planner-only); Garmin and Polar are additive — once connected, their
+// activities merge into gActivities so recent-activities, completion-matching, and the
+// calendar pick them up too, without a second copy of the whole rendering pipeline.
+let gStravaRawActivities    = [];
+let gSecondaryActivities    = {}; // providerId -> normalized activity array
+
+function mergeSecondaryActivities(baseActivities) {
+  gStravaRawActivities = baseActivities || [];
+  const merged = [...gStravaRawActivities];
+  Object.values(gSecondaryActivities).forEach(list => merged.push(...list));
+  merged.sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
+  return merged;
+}
+
+async function refreshSecondaryActivities() {
+  let changed = false;
+  for (const id of Object.keys(PROVIDERS)) {
+    if (id === 'strava' || !isProviderConnected(id)) continue;
+    try { gSecondaryActivities[id] = await fetchProviderActivities(id); changed = true; }
+    catch (e) { console.error(`[${id}] activity fetch failed`, e); }
+  }
+  if (!changed || !gAthlete) return; // no live Strava dashboard to splice into
+  gActivities = mergeSecondaryActivities(gStravaRawActivities);
+  renderRecentActivities(false);
+  renderWeekStrip();
+  renderCalendar();
+}
+
+async function fetchProviderActivities(id) {
+  const cfg = await ensureFreshProviderToken(id);
+  if (!cfg?.access_token) return [];
+  if (id === 'polar') return fetchPolarActivities(cfg.access_token);
+  // Garmin: OAuth connect works, but there's no simple activity-list pull to call here yet —
+  // see the GARMIN note at the top of strava-worker/index.js for what's still needed.
+  return [];
+}
+
+// ── Polar AccessLink activity fetch ───────────────────────────────
+// Polar's exercise data is transactional: register the user once (idempotent — a repeat
+// registration 409s, which polarApi() below treats as fine), open a transaction, fetch the
+// exercises it names, then commit to close it so the next pull only returns newer ones. All
+// calls need just the bearer token, so — like Strava — they run straight from the browser.
+const POLAR_API = 'https://www.polaraccesslink.com/v3';
+
+async function polarApi(path, token, opts = {}) {
+  const r = await fetch(POLAR_API + path, { ...opts, headers: { Authorization: 'Bearer ' + token, ...(opts.headers || {}) } });
+  if (r.status === 204) return null; // "nothing new" for transaction opens
+  if (!r.ok && r.status !== 409) throw new Error('Polar API error ' + r.status);
+  const text = await r.text();
+  return text ? JSON.parse(text) : null;
+}
+
+function polarPath(resourceUri) { return new URL(resourceUri).pathname.replace(/^\/v3/, ''); }
+
+async function fetchPolarActivities(token) {
+  await polarApi('/users', token, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ 'member-id': 'jm-dashboard' }),
+  }).catch(() => {});
+
+  const tx = await polarApi('/users/exercise-transactions', token, { method: 'POST' });
+  if (!tx) return []; // 204 — nothing new since the last pull
+
+  const list      = await polarApi(polarPath(tx['resource-uri']), token);
+  const exercises = await Promise.all((list?.exercises || []).map(uri => polarApi(polarPath(uri), token).catch(() => null)));
+  await polarApi(polarPath(tx['resource-uri']), token, { method: 'PUT' }).catch(() => {}); // commit — closes the transaction
+
+  return exercises.filter(Boolean).map(polarToActivity);
+}
+
+function polarSportToStravaType(sport) {
+  const s = String(sport || '').toUpperCase();
+  if (s.includes('RUN'))                                  return 'Run';
+  if (s.includes('RIDE') || s.includes('BIKE') || s.includes('CYCLING')) return 'Ride';
+  if (s.includes('SWIM'))                                 return 'Swim';
+  return 'Workout';
+}
+
+function isoDurationToSeconds(iso) {
+  const m = /^PT(?:(\d+)H)?(?:(\d+)M)?(?:([\d.]+)S)?$/.exec(iso || '');
+  if (!m) return 0;
+  return (parseInt(m[1] || 0, 10) * 3600) + (parseInt(m[2] || 0, 10) * 60) + parseFloat(m[3] || 0);
+}
+
+// Reshapes a Polar exercise into the same fields the rest of the app already reads off
+// Strava activities (a.type/a.distance/a.moving_time/…), so recent-activities rendering,
+// completion matching, and zone/prediction derivation all work on it unchanged.
+function polarToActivity(ex) {
+  const movingTime = isoDurationToSeconds(ex.duration);
+  const distance    = ex.distance || 0;
+  return {
+    id:                   `polar-${ex.id}`,
+    source:               'polar',
+    type:                 polarSportToStravaType(ex.sport),
+    name:                 (ex.sport || 'Workout').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+    start_date:           ex['start-time'],
+    distance,
+    moving_time:          movingTime,
+    average_speed:        movingTime > 0 ? distance / movingTime : 0,
+    total_elevation_gain: 0,
+    average_heartrate:    ex['heart-rate']?.average,
+  };
 }
 
 // ── Strava formatters ────────────────────────────────────────────
@@ -4338,7 +4521,7 @@ function renderRecentActivities(expanded) {
 
 // ── Main render (after data load) ────────────────────────────────
 function stravaRender(athlete, stats, activities, cfg) {
-  gAthlete = athlete; gStats = stats; gActivities = activities; gCfg = cfg || null;
+  gAthlete = athlete; gStats = stats; gActivities = mergeSecondaryActivities(activities); gCfg = cfg || null;
   gAthleteZones = deriveAthleteZones();
   renderZonesPanel();
   renderRacePrediction();
@@ -4380,24 +4563,51 @@ async function stravaInit() {
   const errParam = params.get('error');
   let cfg = getCfg();
 
-  if (errParam) { clearCfg(); showStravaSetup(); document.getElementById('setup-error').textContent = 'Authorization denied.'; return; }
+  if (errParam) {
+    // A pending Garmin/Polar OAuth can also land here on denial — clear whichever
+    // provider actually initiated it rather than always assuming Strava.
+    let pending = null;
+    try { pending = JSON.parse(sessionStorage.getItem(OAUTH_STATE_KEY) || 'null'); sessionStorage.removeItem(OAUTH_STATE_KEY); } catch {}
+    if (pending && pending.provider !== 'strava') { clearProviderCfg(pending.provider); }
+    else clearCfg();
+    showStravaSetup(); document.getElementById('setup-error').textContent = 'Authorization denied.'; return;
+  }
 
   if (code) {
-    // CSRF check: the state echoed by Strava must match the one we stored before redirecting.
+    // CSRF check: the state echoed back must match what we stored before redirecting,
+    // which also tells us which provider this callback belongs to.
     const returnedState = params.get('state');
-    let expectedState = null;
-    try { expectedState = sessionStorage.getItem(OAUTH_STATE_KEY); sessionStorage.removeItem(OAUTH_STATE_KEY); } catch {}
-    if (!expectedState || returnedState !== expectedState) {
+    let pending = null;
+    try { pending = JSON.parse(sessionStorage.getItem(OAUTH_STATE_KEY) || 'null'); sessionStorage.removeItem(OAUTH_STATE_KEY); } catch {}
+    if (!pending || returnedState !== pending.state) {
       clearCfg();
       window.history.replaceState({}, '', window.location.pathname);
       showStravaSetup();
       document.getElementById('setup-error').textContent = 'Sign-in could not be verified. Please connect again.';
       return;
     }
-    showStravaLoading();
     window.history.replaceState({}, '', window.location.pathname);
-    try { const tokens = await exchangeCode(code); cfg = {...(cfg||{}),...tokens}; saveCfg(cfg); }
-    catch (e) { clearCfg(); showStravaSetup(); document.getElementById('setup-error').textContent = e.message; return; }
+
+    if (pending.provider !== 'strava') {
+      // Garmin/Polar are secondary sources — connect them without disturbing whatever
+      // the main page is currently showing (planner-only or a live Strava dashboard).
+      try {
+        const tokens = await exchangeCode(code, pending.provider, pending.verifier);
+        saveProviderCfg(pending.provider, tokens);
+        toast(`${PROVIDERS[pending.provider].label} connected.`);
+        refreshSecondaryActivities();
+      } catch (e) {
+        clearProviderCfg(pending.provider);
+        toast(`Could not connect ${PROVIDERS[pending.provider].label}: ${e.message}`);
+      }
+      cfg = getCfg();
+      if (!cfg?.access_token) { showPlannerOnly(); return; }
+      // fall through to the normal Strava render path below
+    } else {
+      showStravaLoading();
+      try { const tokens = await exchangeCode(code, 'strava'); cfg = {...(cfg||{}),...tokens}; saveCfg(cfg); }
+      catch (e) { clearCfg(); showStravaSetup(); document.getElementById('setup-error').textContent = e.message; return; }
+    }
   }
 
   if (!cfg) { showPlannerOnly(); return; }
@@ -4411,10 +4621,11 @@ async function stravaInit() {
     const [athlete, activities] = await Promise.all([stravaApi('/athlete', cfg.access_token), fetchAllActivities(cfg.access_token)]);
     const stats = await stravaApi(`/athletes/${athlete.id}/stats`, cfg.access_token);
     stravaRender(athlete, stats, activities, cfg);
+    await refreshSecondaryActivities();
   } catch (e) {
     console.error(e);
     cfg.access_token = null; cfg.expires_at = 0; saveCfg(cfg);
-    startOAuth();
+    startOAuth('strava');
   }
 }
 
@@ -4428,17 +4639,26 @@ document.getElementById('nav-home').addEventListener('click', (e) => {
 document.getElementById('start-planning-btn').addEventListener('click', showPlannerOnly);
 // Go straight to the Strava OAuth page — no intermediate "Connect with Strava" screen.
 document.getElementById('nav-connect').addEventListener('click', () => {
-  if (!STRAVA_CLIENT_ID || !WORKER_URL) { showStravaSetup(); return; }
-  startOAuth();
+  if (!PROVIDERS.strava.clientId || !WORKER_URL) { showStravaSetup(); return; }
+  startOAuth('strava');
 });
 
 document.getElementById('setup-btn').addEventListener('click', () => {
   const err = document.getElementById('setup-error');
-  if (!STRAVA_CLIENT_ID || !WORKER_URL) {
-    err.textContent = 'Set STRAVA_CLIENT_ID and WORKER_URL in the source first.';
+  if (!PROVIDERS.strava.clientId || !WORKER_URL) {
+    err.textContent = 'Set PROVIDERS.strava.clientId and WORKER_URL in the source first.';
     return;
   }
-  startOAuth();
+  startOAuth('strava');
+});
+
+// Secondary connect buttons on the welcome screen (Garmin/Polar) — wired generically so
+// adding a fourth provider later only means adding it to PROVIDERS above.
+['garmin', 'polar'].forEach(id => {
+  const btn = document.getElementById(`setup-btn-${id}`);
+  if (!btn) return;
+  if (!PROVIDERS[id].clientId) { btn.disabled = true; btn.title = `${PROVIDERS[id].label}: not configured yet`; }
+  btn.addEventListener('click', () => startOAuth(id));
 });
 
 // ════════════════════════════════════════════
@@ -6429,25 +6649,59 @@ function renderAccountUI() {
   });
 }
 
-function renderAccountDropdown() {
-  const dropdown  = document.getElementById('account-dropdown');
-  const session   = getSession();
+// One row per connected data source: Strava (drives the main dashboard, so it also
+// shows the athlete name once loaded) plus Garmin/Polar (secondary — connect/disconnect
+// only, no dedicated status text beyond connected/not).
+function providerRowsHtml() {
   const stravaCfg = getCfg();
   const stravaConnected = !!(gAthlete || stravaCfg?.access_token);
   const stravaStatus = gAthlete
     ? `Strava: connected as ${esc(gAthlete.firstname || '')} ${esc(gAthlete.lastname || '')}`.trim()
     : (stravaConnected ? 'Strava: connected' : 'Strava: not connected');
-  const stravaAction = stravaConnected
-    ? `<button class="account-dropdown-action" id="disconnect-strava-btn" type="button">Disconnect from Strava</button>`
-    : '';
+  let html = `<div class="account-dropdown-meta">${stravaStatus}</div>` +
+    (stravaConnected ? `<button class="account-dropdown-action" data-disconnect-provider="strava" type="button">Disconnect from Strava</button>` : '');
+
+  ['garmin', 'polar'].forEach(id => {
+    const p = PROVIDERS[id];
+    const connected = isProviderConnected(id);
+    const configured = !!p.clientId;
+    html += `<div class="account-dropdown-meta">${p.label}: ${connected ? 'connected' : (configured ? 'not connected' : 'not configured yet')}</div>`;
+    if (connected) html += `<button class="account-dropdown-action" data-disconnect-provider="${id}" type="button">Disconnect from ${esc(p.label)}</button>`;
+    else if (configured) html += `<button class="account-dropdown-action" data-connect-provider="${id}" type="button">Connect ${esc(p.label)}</button>`;
+  });
+  return html;
+}
+
+function wireProviderRows() {
+  document.querySelectorAll('[data-disconnect-provider]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.disconnectProvider;
+      const label = id === 'strava' ? 'Strava' : PROVIDERS[id].label;
+      if (!confirm(`Disconnect ${label} and clear saved tokens?`)) return;
+      if (id === 'strava') { clearCfg(); window.location.replace(window.location.pathname); return; }
+      clearProviderCfg(id);
+      delete gSecondaryActivities[id];
+      if (gAthlete) { gActivities = mergeSecondaryActivities(gStravaRawActivities); renderRecentActivities(false); renderWeekStrip(); renderCalendar(); }
+      renderAccountDropdown();
+    });
+  });
+  document.querySelectorAll('[data-connect-provider]').forEach(btn => {
+    btn.addEventListener('click', (e) => { e.stopPropagation(); startOAuth(btn.dataset.connectProvider); });
+  });
+}
+
+function renderAccountDropdown() {
+  const dropdown  = document.getElementById('account-dropdown');
+  const session   = getSession();
+  const providerRows = providerRowsHtml();
 
   if (session) {
     dropdown.innerHTML = `
       <div class="account-dropdown-label">Account</div>
       <div class="account-dropdown-email">${esc(session.email)}</div>
       <div class="account-dropdown-meta" id="account-meta">Synced across devices</div>
-      <div class="account-dropdown-meta">${stravaStatus}</div>
-      ${stravaAction}
+      ${providerRows}
       <div class="account-dropdown-verify hidden" id="account-verify-row">
         <span class="account-dropdown-meta">Email not verified</span>
         <button class="account-dropdown-action" id="resend-verify-btn" type="button">Resend confirmation email</button>
@@ -6480,10 +6734,7 @@ function renderAccountDropdown() {
       e.stopPropagation();
       toggleReminders(session, e.currentTarget);
     });
-    document.getElementById('disconnect-strava-btn')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (confirm('Disconnect Strava and clear saved tokens?')) { clearCfg(); window.location.replace(window.location.pathname); }
-    });
+    wireProviderRows();
     fetch(WORKER_URL + '/account', { headers: { 'Authorization': 'Bearer ' + session.token } })
       .then(res => res.ok ? res.json() : null)
       .then(data => {
@@ -6522,14 +6773,10 @@ function renderAccountDropdown() {
     dropdown.innerHTML = `
       <div class="account-dropdown-label">Account</div>
       <div class="account-dropdown-meta">Not signed in — your plan is saved in this browser only.</div>
-      <div class="account-dropdown-meta">${stravaStatus}</div>
-      ${stravaAction}
+      ${providerRows}
       <a class="account-dropdown-action" href="/">Create account or log in →</a>
     `;
-    document.getElementById('disconnect-strava-btn')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (confirm('Disconnect Strava and clear saved tokens?')) { clearCfg(); window.location.replace(window.location.pathname); }
-    });
+    wireProviderRows();
   }
 }
 
