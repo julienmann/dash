@@ -21,6 +21,11 @@ Strava performance. It deploys as part of the julienmann.ca site at **julienmann
 - `dashboard/index.html` — the entire dashboard: a **single self-contained file** (HTML + CSS
   + vanilla JS, no build step, no framework). All plan logic, rendering, Strava integration,
   and the Plan Builder / AI questionnaire live here.
+- `dashboard/manifest.webmanifest`, `dashboard/sw.js`, `dashboard/icon-*.png`,
+  `dashboard/apple-touch-icon.png` — PWA shell (installable, offline-capable). On phone
+  widths (≤760px) the page runs as a tabbed app (Today / Plan / Stats / Edit) via a fixed
+  bottom tab bar; desktop layout is unchanged. Bump the `CACHE` name in `sw.js` when
+  changing caching behavior.
 - `dashboard/{PRODUCT,DESIGN}.md`, `dashboard/DESIGN.json` — the dashboard's design context (see below).
 - `strava-worker/` — Cloudflare Worker that proxies Strava OAuth and Anthropic AI calls. Holds
   all secrets. (A duplicate copy also sits at `dashboard/worker/`.)

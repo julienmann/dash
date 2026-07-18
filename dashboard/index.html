@@ -2,7 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#FFFFFF">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Training">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; connect-src https://www.strava.com https://strava-auth.jmdashboard.workers.dev; font-src https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src * data:;">
 <title>Training Plan</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%231A1A1D'/%3E%3Crect x='16.8' y='13' width='3.5' height='38' rx='1.6' fill='%23fff'/%3E%3Crect x='20.5' y='14' width='26' height='19.5' fill='%233A3A40'/%3E%3Cg fill='%23FC4C02'%3E%3Crect x='20.5' y='14' width='6.5' height='6.5'/%3E%3Crect x='33.5' y='14' width='6.5' height='6.5'/%3E%3Crect x='27' y='20.5' width='6.5' height='6.5'/%3E%3Crect x='40' y='20.5' width='6.5' height='6.5'/%3E%3Crect x='20.5' y='27' width='6.5' height='6.5'/%3E%3Crect x='33.5' y='27' width='6.5' height='6.5'/%3E%3C/g%3E%3C/svg%3E">
@@ -782,6 +789,63 @@ textarea.aiq-big-input{line-height:1.4;min-height:7.5rem;}
   .topnav-race{display:none;}
   .topnav-alltime{display:none;}
 }
+/* ── Mobile app shell ─────────────────────────────────────────────
+   ≤760px the page becomes a tabbed app: a fixed bottom bar routes between four
+   focused views of the same DOM (body[data-mtab] show/hide, no re-render).
+   Desktop is untouched — the bar is display:none and the routing rules are
+   scoped inside this media query. */
+.tabbar{display:none;}
+@media(max-width:760px){
+  .tabbar{
+    display:flex;position:fixed;left:0;right:0;bottom:0;z-index:300;
+    background:var(--card);border-top:1px solid var(--border);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .tabbar-item{
+    flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.15rem;
+    min-height:56px;padding:.4rem 0 .3rem;color:var(--mid);
+    font-size:.62rem;font-weight:700;letter-spacing:.04em;
+    background:none;border:none;cursor:pointer;transition:color .15s;
+  }
+  .tabbar-item svg{width:22px;height:22px;}
+  .tabbar-item.active{color:var(--orange-strong);}
+  body.no-tabbar .tabbar{display:none;}
+  /* room for the fixed bar */
+  body:not(.no-tabbar){padding-bottom:calc(60px + env(safe-area-inset-bottom));}
+  /* the tab bar replaces the topnav Edit button */
+  #edit-plan-btn{display:none;}
+
+  /* Tab routing. Everything hidden here is display:none'd for the inactive tabs;
+     the .hidden class from app logic still wins (these rules never force-show). */
+  /* Today: the day's answer only */
+  body[data-mtab="today"] #timeline-wrap,
+  body[data-mtab="today"] #cal-section,
+  body[data-mtab="today"] #recent-acts-section,
+  body[data-mtab="today"] #strava-content,
+  body[data-mtab="today"] #strava-loading,
+  body[data-mtab="today"] #strava-setup{display:none;}
+  /* Plan: the schedule */
+  body[data-mtab="plan"] #hero,
+  body[data-mtab="plan"] #wellness-strip,
+  body[data-mtab="plan"] #ai-panel,
+  body[data-mtab="plan"] #recent-acts-section,
+  body[data-mtab="plan"] #strava-content,
+  body[data-mtab="plan"] #strava-loading,
+  body[data-mtab="plan"] #strava-setup{display:none;}
+  /* Stats: Strava charts + recent activities (or the connect screen when not linked) */
+  body[data-mtab="stats"] .race-hdr,
+  body[data-mtab="stats"] .prog-row,
+  body[data-mtab="stats"] .prog-wrap,
+  body[data-mtab="stats"] #prog-predict,
+  body[data-mtab="stats"] #hero-wrap,
+  body[data-mtab="stats"] #ai-panel{display:none;}
+  /* Edit: the builder page is its own main; hide the training/stats mains behind it */
+  body[data-mtab="edit"] #training,
+  body[data-mtab="edit"] #strava-content,
+  body[data-mtab="edit"] #strava-loading,
+  body[data-mtab="edit"] #strava-setup{display:none;}
+}
+
 /* Mobile Safari zooms the whole page on focus of any text input under 16px —
    bump every form control to 16px on touch-sized viewports without touching
    the desktop type scale. */
@@ -1427,6 +1491,28 @@ textarea.aiq-big-input{line-height:1.4;min-height:7.5rem;}
   </div>
 </div>
 
+<!-- ── MOBILE TAB BAR ──
+     App-shell navigation on phone widths only (hidden ≥761px). Each tab shows one
+     focused view of the same page; "Today over everything" gets the default tab. -->
+<nav class="tabbar" id="tabbar" aria-label="Sections">
+  <button class="tabbar-item active" type="button" data-mtab="today">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+    <span>Today</span>
+  </button>
+  <button class="tabbar-item" type="button" data-mtab="plan">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
+    <span>Plan</span>
+  </button>
+  <button class="tabbar-item" type="button" data-mtab="stats">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="20" x2="5" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="19" y1="20" x2="19" y2="10"/></svg>
+    <span>Stats</span>
+  </button>
+  <button class="tabbar-item" type="button" data-mtab="edit">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+    <span>Edit</span>
+  </button>
+</nav>
+
 <!-- ── FOOTER ── -->
 <footer>
   <div class="footer-inner">
@@ -1440,7 +1526,7 @@ textarea.aiq-big-input{line-height:1.4;min-height:7.5rem;}
 <script>
 // Bump on every deploy-worthy change — shown in the footer so it's obvious
 // which build is live (e.g. after a cache or CDN propagation lag).
-const APP_VERSION = 'v1.2.0';
+const APP_VERSION = 'v1.3.0';
 
 // ════════════════════════════════════════════
 //  TRAINING PLAN
@@ -4485,6 +4571,8 @@ function openPlanBuilder() {
   document.getElementById('plan-builder').classList.remove('hidden');
   document.getElementById('builder-actions').classList.add('hidden');
   renderBuilderChooser();
+  document.body.dataset.mtab = 'edit';
+  syncTabbar();
   window.scrollTo(0, 0);
 }
 
@@ -4607,6 +4695,8 @@ function forceCreatePlan() {
   document.getElementById('nav-race').textContent = '';
   document.getElementById('builder-title').textContent = 'Create Your Training Plan';
   document.getElementById('builder-extras').classList.add('hidden'); // zones are noise during first-time plan creation
+  document.body.classList.add('no-tabbar'); // plan creation is a locked flow — no tab escape hatches
+  document.body.dataset.mtab = 'edit';
   DRAFT_PLAN = JSON.parse(JSON.stringify(DEFAULT_PLAN));
   DRAFT_BASELINE = null;
   openBuilderCreate(false);
@@ -4626,6 +4716,8 @@ function closePlanBuilder() {
   });
   if (location.hash === '#/builder') history.replaceState(null, '', location.pathname + location.search);
   setActiveNav('home');
+  document.body.dataset.mtab = gMtab;
+  syncTabbar();
 }
 
 // AI coach edit — a free-text instruction revises DRAFT_PLAN in place via the same
@@ -6723,6 +6815,40 @@ function renderDeleteAccountConfirm(session) {
   });
 }
 renderAccountUI();
+
+// ── Mobile tab bar ────────────────────────────────────────────────
+// body[data-mtab] drives the CSS routing (mobile media query only, so setting it
+// unconditionally is harmless on desktop). gMtab remembers the last content tab so
+// closing the editor returns where the athlete was.
+let gMtab = 'today';
+
+function syncTabbar() {
+  const tab = document.body.dataset.mtab || 'today';
+  document.querySelectorAll('.tabbar-item').forEach(b => b.classList.toggle('active', b.dataset.mtab === tab));
+}
+
+function setMobileTab(tab) {
+  const builderOpen = !document.getElementById('plan-builder').classList.contains('hidden');
+  if (tab === 'edit') {
+    if (!builderOpen) { openPlanBuilder(); return; } // openPlanBuilder stamps the tab itself
+  } else {
+    gMtab = tab;
+    if (builderOpen) { closePlanBuilder(); return; } // closePlanBuilder restores gMtab
+  }
+  document.body.dataset.mtab = tab;
+  syncTabbar();
+  window.scrollTo(0, 0);
+}
+
+document.querySelectorAll('.tabbar-item').forEach(btn =>
+  btn.addEventListener('click', () => setMobileTab(btn.dataset.mtab)));
+document.body.dataset.mtab = 'today';
+
+// PWA: offline shell + installability. Registration is best-effort; the app is
+// fully functional without it (e.g. browsers with SW disabled).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 
 // Zones can exist without Strava (VO₂ max input, manual overrides) — render the
 // panel at boot too; stravaRender() re-renders it when activity data lands.
