@@ -13,18 +13,10 @@
  *   ANTHROPIC_API_KEY    — sk-ant-… key from console.anthropic.com
  *   SESSION_SECRET       — random 32+ byte string used to sign session tokens
  *
- * Optional secrets (Garmin/Polar connect — the frontend's connect buttons for a
- * provider stay disabled until its client id/secret are set):
- *   GARMIN_CLIENT_ID     — from a Garmin Connect Developer Program app
- *   GARMIN_CLIENT_SECRET — from the same app
+ * Optional secrets (Polar connect — the frontend's connect button stays disabled
+ * until its client id/secret are set):
  *   POLAR_CLIENT_ID      — client id from a Polar AccessLink app (admin.polaraccesslink.com)
  *   POLAR_CLIENT_SECRET  — client secret from the same app
- *
- * Note on Garmin: unlike Strava/Polar, Garmin's public API does not offer a simple
- * "list recent activities" pull — activity data is delivered via webhook (Ping/Push)
- * or a one-time backfill request, both of which need server-side storage. This worker
- * implements the OAuth connect (so tokens can be obtained/refreshed) but /garmin/activities
- * is a stub — wire it to a webhook receiver + D1 table before relying on it for real data.
  *
  * Required var (set in wrangler.toml [vars]):
  *   ALLOWED_ORIGIN — comma-separated dashboard origin(s), e.g.
@@ -57,19 +49,13 @@ const PLAN_MAX_BYTES     = 1_000_000; // 1 MB cap on a synced plan
 // ── Connected data-source OAuth config ──────────────────────────────────
 // One entry per provider the frontend can connect. `tokenUrl` is the OAuth2 token
 // endpoint; `auth` picks how the client id/secret are sent (Strava wants them in the
-// JSON body, Garmin/Polar want HTTP Basic auth over a form-encoded body per their docs).
+// JSON body, Polar wants HTTP Basic auth over a form-encoded body per its docs).
 const PROVIDER_CONFIG = {
   strava: {
     tokenUrl:     'https://www.strava.com/oauth/token',
     auth:         'body',
     clientIdKey:  'STRAVA_CLIENT_ID',
     clientSecretKey: 'STRAVA_CLIENT_SECRET',
-  },
-  garmin: {
-    tokenUrl:     'https://diauthz.garmin.com/di-oauth2-service/oauth/token',
-    auth:         'basic',
-    clientIdKey:  'GARMIN_CLIENT_ID',
-    clientSecretKey: 'GARMIN_CLIENT_SECRET',
   },
   polar: {
     tokenUrl:     'https://polarremote.com/v2/oauth2/token',
@@ -142,15 +128,9 @@ export default {
 
     // Kept at POST / (rather than moving to a new path) so existing Strava-only deployments
     // don't need a URL change — the body now carries an optional `provider` field, defaulting
-    // to 'strava' for callers that predate Garmin/Polar support.
+    // to 'strava' for callers that predate Polar support.
     if (req.method === 'POST' && (url.pathname === '/' || url.pathname === '')) {
       return handleTokenExchange(req, env, allowOrigin);
-    }
-
-    if (url.pathname === '/garmin/activities' && req.method === 'GET') {
-      // See the GARMIN note at the top of this file — real activity data needs a
-      // webhook receiver + storage that this worker doesn't implement yet.
-      return json({ error: 'Garmin activity sync is not wired up yet — connect works, activity pull needs a webhook/backfill integration' }, 501, allowOrigin);
     }
 
     return json({ error: 'Not found' }, 404, allowOrigin);
@@ -645,7 +625,7 @@ async function handleDeletePlan(req, env, allowOrigin) {
   return json({ ok: true }, 200, allowOrigin);
 }
 
-// ── OAuth token exchange (Strava / Garmin / Polar) ────────────────
+// ── OAuth token exchange (Strava / Polar) ──────────────────────────
 
 async function handleTokenExchange(req, env, allowOrigin) {
   let body;
@@ -662,7 +642,7 @@ async function handleTokenExchange(req, env, allowOrigin) {
     return json({ error: `Worker not configured — set ${cfg.clientIdKey} and ${cfg.clientSecretKey} secrets` }, 503, allowOrigin);
   }
 
-  const { grant_type, code, refresh_token, code_verifier, redirect_uri } = body;
+  const { grant_type, code, refresh_token, redirect_uri } = body;
   if (grant_type === 'authorization_code') {
     if (!code) return json({ error: 'Missing code' }, 400, allowOrigin);
   } else if (grant_type === 'refresh_token') {
@@ -683,14 +663,12 @@ async function handleTokenExchange(req, env, allowOrigin) {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
     } else {
-      // Garmin / Polar: HTTP Basic auth over a form-encoded body, per their OAuth2 docs.
-      // Garmin's PKCE flow additionally needs code_verifier on the authorization_code leg;
-      // both want redirect_uri echoed back (the frontend sends it, since only it knows it).
+      // Polar: HTTP Basic auth over a form-encoded body, per its OAuth2 docs.
+      // redirect_uri is echoed back (the frontend sends it, since only it knows it).
       const form = new URLSearchParams({ grant_type });
       if (grant_type === 'authorization_code') {
         form.set('code', code);
         if (redirect_uri) form.set('redirect_uri', redirect_uri);
-        if (code_verifier) form.set('code_verifier', code_verifier);
       } else {
         form.set('refresh_token', refresh_token);
       }
@@ -718,8 +696,8 @@ async function handleTokenExchange(req, env, allowOrigin) {
   }
 
   // Return only the fields the frontend needs. expires_at is a unix timestamp for
-  // Strava; Garmin/Polar return expires_in (seconds), normalized here so the frontend's
-  // ensureFreshToken() can treat all three the same way. Polar also returns x_user_id,
+  // Strava; Polar returns expires_in (seconds), normalized here so the frontend's
+  // ensureFreshToken() can treat both the same way. Polar also returns x_user_id,
   // the numeric AccessLink user id needed for its exercise-pull endpoints.
   return json({
     access_token:  data.access_token,
